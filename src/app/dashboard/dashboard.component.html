@@ -17,36 +17,35 @@
     </div>
   </form>
 
-  <!-- Piano mensile con ricorrenza indipendente dalla data -->
-  <div class="card">
+  <!-- Piano mensile -->
+  <div class="card position-relative">
     <div class="card-body">
-      <div class="card-title h5 mb-3">Piano mensile (entrate e spese applicate ogni mese indipendentemente dalla data)</div>
-      <div class="small text-muted mb-2">
-        Entrate mese = somma di tutte le entrate.<br>
-        Spese mensili mese = somma di tutte le spese con tipo mensile.<br>
-        Spese annuali mese = (somma spese annuali) / 12.<br>
-        Quota da mettere da parte = (Importo finale − Importo iniziale) / 12.<br>
-        Eccedenza = Entrate − Spese mensili − Spese annuali/12 − Quota da mettere da parte.
-      </div>
+      <div class="card-title h5 mb-3">Piano mensile</div>
       <div class="table-responsive">
         <table class="table table-sm align-middle">
           <thead>
             <tr>
               <th>Mese</th>
+              <th class="text-end" style="width:14rem">Stipendio</th>
               <th class="text-end">Entrate</th>
-              <th class="text-end">Spese mensili</th>
-              <th class="text-end">Spese annuali / 12</th>
+              <th class="text-end">Spese (mensili + annuali/12)</th>
               <th class="text-end">Da mettere da parte</th>
               <th class="text-end">Eccedenza</th>
               <th class="text-end">Saldo fine periodo</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let r of pianoMensile">
+            <tr *ngFor="let r of piano; let i = index" class="align-middle">
               <td>{{ r.mese }}</td>
-              <td class="text-end">{{ r.entrate | number:'1.2-2' }}€</td>
-              <td class="text-end">{{ r.speseMensili | number:'1.2-2' }}€</td>
-              <td class="text-end">{{ r.quotaAnnuali | number:'1.2-2' }}€</td>
+              <td class="text-end">
+                <input type="number" class="form-control form-control-sm d-inline-block text-end" style="max-width: 10rem;"
+                       [(ngModel)]="stipendi[i]" [name]="'stipendio_'+i" step="1"
+                       [ngModelOptions]="{standalone:true}" (blur)="onStipendioChange()" />
+              </td>
+              <td class="text-end">{{ r.entrateTotali | number:'1.2-2' }}€</td>
+              <td class="text-end position-relative">
+                {{ r.speseTotali | number:'1.2-2' }}€
+              </td>
               <td class="text-end">{{ r.quotaRisparmio | number:'1.2-2' }}€</td>
               <td class="text-end">{{ r.eccedenza | number:'1.2-2' }}€</td>
               <td class="text-end">{{ r.saldoFinePeriodo | number:'1.2-2' }}€</td>
