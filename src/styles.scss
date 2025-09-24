@@ -1,0 +1,8 @@
+
+:root{ --muted:#6b7280; --pos:#066e2b; --neg:#b91c1c; }
+.container-narrow { max-width: 1180px; }
+.badge-pos{ color: var(--pos); font-weight:600; }
+.badge-neg{ color: var(--neg); font-weight:600; }
+.table td, .table th{ white-space: nowrap; }
+.actions { display:flex; align-items: flex-end; gap:.5rem; }
+.table-sticky thead th { position: sticky; top: 0; z-index: 2; background: var(--bs-body-bg); }

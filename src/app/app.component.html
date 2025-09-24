@@ -1,0 +1,280 @@
+
+<nav class="navbar navbar-expand-lg bg-body-tertiary shadow-sm sticky-top">
+  <div class="container-fluid container-narrow">
+    <span class="navbar-brand">{{ title }}</span>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <button class="btn btn-outline-secondary btn-sm" (click)="exportCSV()">Esporta CSV</button>
+      <button class="btn btn-outline-secondary btn-sm" (click)="exportExcel()">Esporta Excel</button>
+    </div>
+  </div>
+</nav>
+
+<main class="container container-narrow my-4">
+  <section class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Annualità</h5>
+      <div class="row g-3 align-items-end">
+        <div class="col-auto"><label class="col-form-label">Seleziona anno:</label></div>
+        <div class="col-auto">
+          <select class="form-select form-select-sm" [(ngModel)]="currentYear" (ngModelChange)="loadYear($event)">
+            <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary btn-sm" (click)="addYear()">+ Aggiungi anno</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card shadow-sm mb-4" *ngIf="data as d">
+    <div class="card-body">
+      <h5 class="card-title">Configurazione {{ d.config.year }}</h5>
+      <form [formGroup]="configForm" class="row g-3">
+        <div class="col-sm-6">
+          <label class="form-label">Saldo iniziale CC</label>
+          <input type="number" step="0.01" formControlName="saldoInizialeCC" class="form-control form-control-sm" [ngClass]="{'is-invalid': ctrlInvalid(fCfg.saldoInizialeCC)}">
+          <div class="invalid-feedback">Obbligatorio. Inserire un valore ≥ 0.</div>
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Saldo finale desiderato CC (31/12)</label>
+          <input type="number" step="0.01" formControlName="saldoFinaleDesideratoCC" class="form-control form-control-sm" [ngClass]="{'is-invalid': ctrlInvalid(fCfg.saldoFinaleDesideratoCC)}">
+          <div class="invalid-feedback">Obbligatorio. Inserire un valore ≥ 0.</div>
+        </div>
+      </form>
+      <small class="text-secondary">Salvataggio automatico: ogni modifica viene salvata in tempo reale.</small>
+    </div>
+  </section>
+
+  <div class="row g-4" *ngIf="data as d">
+    <div class="col-lg-6">
+      <section class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title">Spese mensili ricorrenti</h5>
+          <form [formGroup]="monthlyExpenseForm" (ngSubmit)="addMonthlyExpense()" class="row g-2 align-items-end">
+            <div class="col-6">
+              <label class="form-label">Descrizione</label>
+              <input class="form-control form-control-sm" formControlName="descrizione" placeholder="Affitto, Internet..." [ngClass]="{'is-invalid': ctrlInvalid(monthlyExpenseForm.controls.descrizione)}">
+              <div class="invalid-feedback">Campo obbligatorio.</div>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Importo €</label>
+              <input type="number" step="0.01" formControlName="importo" class="form-control form-control-sm" [ngClass]="{'is-invalid': ctrlInvalid(monthlyExpenseForm.controls.importo)}">
+              <div class="invalid-feedback">Inserire un importo > 0.</div>
+            </div>
+            <div class="col-2 d-grid">
+              <button class="btn btn-primary btn-sm" type="submit">Aggiungi</button>
+            </div>
+          </form>
+
+          <ul class="list-unstyled mt-3 mb-0 small">
+            <li *ngFor="let e of d.monthlyExpenses" class="d-flex align-items-center py-1 border-bottom">
+              <input class="form-check-input me-2" type="checkbox" [ngModel]="e.active" (ngModelChange)="toggleMonthlyExpense(e.id)">
+              <span [class.text-secondary]="!e.active" [class.text-decoration-line-through]="!e.active">{{ e.descrizione }} — {{ e.importo | number:'1.2-2':'it' }} €</span>
+              <div class="actions ms-auto"><button class="btn btn-outline-danger btn-sm" (click)="removeMonthlyExpense(e.id)">Rimuovi</button></div>
+            </li>
+            <li *ngIf="d.monthlyExpenses.length===0" class="text-secondary">Nessuna spesa mensile.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-lg-6">
+      <section class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title">Spese annuali (con mese)</h5>
+          <form [formGroup]="annualExpenseForm" (ngSubmit)="addAnnualExpense()" class="row g-2 align-items-end">
+            <div class="col-md-5">
+              <label class="form-label">Descrizione</label>
+              <input class="form-control form-control-sm" formControlName="descrizione" [ngClass]="{'is-invalid': ctrlInvalid(annualExpenseForm.controls.descrizione)}">
+              <div class="invalid-feedback">Campo obbligatorio.</div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Importo €</label>
+              <input type="number" step="0.01" class="form-control form-control-sm" formControlName="importo" [ngClass]="{'is-invalid': ctrlInvalid(annualExpenseForm.controls.importo)}">
+              <div class="invalid-feedback">Inserire un importo > 0.</div>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Mese</label>
+              <input type="number" min="1" max="12" class="form-control form-control-sm" formControlName="mese" [ngClass]="{'is-invalid': ctrlInvalid(annualExpenseForm.controls.mese)}">
+              <div class="invalid-feedback">Valore tra 1 e 12.</div>
+            </div>
+            <div class="col-md-2 d-grid">
+              <button class="btn btn-primary btn-sm" type="submit">Aggiungi</button>
+            </div>
+          </form>
+
+          <ul class="list-unstyled mt-3 mb-0 small">
+            <li *ngFor="let e of d.annualExpenses" class="d-flex align-items-center py-1 border-bottom">
+              <span>{{ e.descrizione }} — {{ e.importo | number:'1.2-2':'it' }} € (mese {{ e.mese }})</span>
+              <div class="actions ms-auto"><button class="btn btn-outline-danger btn-sm" (click)="removeAnnualExpense(e.id)">Rimuovi</button></div>
+            </li>
+            <li *ngIf="d.annualExpenses.length===0" class="text-secondary">Nessuna spesa annuale.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-lg-12">
+      <section class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Entrate</h5>
+          <h6 class="mt-2">Mensili</h6>
+          <form [formGroup]="monthlyIncomeForm" (ngSubmit)="addMonthlyIncome()" class="row g-2 align-items-end">
+            <div class="col-md-5">
+              <label class="form-label">Descrizione</label>
+              <input class="form-control form-control-sm" formControlName="descrizione" [ngClass]="{'is-invalid': ctrlInvalid(monthlyIncomeForm.controls.descrizione)}">
+              <div class="invalid-feedback">Campo obbligatorio.</div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Importo €</label>
+              <input type="number" step="0.01" class="form-control form-control-sm" formControlName="importo" [ngClass]="{'is-invalid': ctrlInvalid(monthlyIncomeForm.controls.importo)}">
+              <div class="invalid-feedback">Inserire un importo > 0.</div>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tipo</label>
+              <select class="form-select form-select-sm" formControlName="type">
+                <option value="stipendio">Stipendio</option>
+                <option value="altro">Altro</option>
+              </select>
+            </div>
+            <div class="col-md-2 d-grid">
+              <button class="btn btn-primary btn-sm" type="submit">Aggiungi</button>
+            </div>
+          </form>
+
+          <ul class="list-unstyled mt-2 mb-0 small">
+            <li *ngFor="let e of d.monthlyIncomes" class="d-flex align-items-center py-1 border-bottom">
+              <span>{{ e.descrizione }} — {{ e.importo | number:'1.2-2':'it' }} € <em class="text-secondary">({{ e.type }})</em></span>
+              <div class="actions ms-auto"><button class="btn btn-outline-danger btn-sm" (click)="removeMonthlyIncome(e.id)">Rimuovi</button></div>
+            </li>
+            <li *ngIf="d.monthlyIncomes.length===0" class="text-secondary">Nessuna entrata mensile.</li>
+          </ul>
+
+          <h6 class="mt-4">Una tantum</h6>
+          <form [formGroup]="oneOffIncomeForm" (ngSubmit)="addOneOffIncome()" class="row g-2 align-items-end">
+            <div class="col-md-5">
+              <label class="form-label">Descrizione</label>
+              <input class="form-control form-control-sm" formControlName="descrizione" [ngClass]="{'is-invalid': ctrlInvalid(oneOffIncomeForm.controls.descrizione)}">
+              <div class="invalid-feedback">Campo obbligatorio.</div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Importo €</label>
+              <input type="number" step="0.01" class="form-control form-control-sm" formControlName="importo" [ngClass]="{'is-invalid': ctrlInvalid(oneOffIncomeForm.controls.importo)}">
+              <div class="invalid-feedback">Inserire un importo > 0.</div>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Mese</label>
+              <input type="number" min="1" max="12" class="form-control form-control-sm" formControlName="mese" [ngClass]="{'is-invalid': ctrlInvalid(oneOffIncomeForm.controls.mese)}">
+              <div class="invalid-feedback">Valore tra 1 e 12.</div>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tipo</label>
+              <select class="form-select form-select-sm" formControlName="type">
+                <option value="stipendio">Stipendio</option>
+                <option value="altro">Altro</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-2 d-grid">
+              <button class="btn btn-primary btn-sm" type="submit">Aggiungi</button>
+            </div>
+          </form>
+
+          <ul class="list-unstyled mt-2 mb-0 small">
+            <li *ngFor="let e of d.oneOffIncomes" class="d-flex align-items-center py-1 border-bottom">
+              <span>{{ e.descrizione }} — {{ e.importo | number:'1.2-2':'it' }} € (mese {{ e.mese }}) <em class="text-secondary">({{ e.type || 'altro' }})</em></span>
+              <div class="actions ms-auto"><button class="btn btn-outline-danger btn-sm" (click)="removeOneOffIncome(e.id)">Rimuovi</button></div>
+            </li>
+            <li *ngIf="d.oneOffIncomes.length===0" class="text-secondary">Nessuna entrata una tantum.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-lg-12">
+      <section class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Carta prepagata</h5>
+          <form [formGroup]="prepaidForm" (ngSubmit)="addPrepaidSnapshot()" class="row g-2 align-items-end">
+            <div class="col-md-3">
+              <label class="form-label">Saldo attuale €</label>
+              <input type="number" step="0.01" class="form-control form-control-sm" formControlName="saldo" [ngClass]="{'is-invalid': ctrlInvalid(prepaidForm.controls.saldo)}">
+              <div class="invalid-feedback">Inserire un importo ≥ 0.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Note</label>
+              <input class="form-control form-control-sm" formControlName="note" placeholder="facoltative">
+            </div>
+            <div class="col-md-3 d-grid">
+              <button class="btn btn-primary btn-sm" type="submit">+ Registra saldo</button>
+            </div>
+          </form>
+          <p *ngIf="lastPrepaidSnapshot as last" class="text-secondary small mt-2 mb-0">
+            Ultimo saldo registrato: <strong>{{ last.saldo | number:'1.2-2':'it' }} €</strong> ({{ last.date | date:'short' }})
+            <span *ngIf="last.note">— {{ last.note }}</span>
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-lg-12">
+      <section class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <h5 class="card-title mb-0">Previsionale {{ d.config.year }}</h5>
+            <div class="d-flex align-items-center gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="onlyNeg" [ngModel]="showOnlyNegative" (ngModelChange)="toggleOnlyNegative()">
+                <label class="form-check-label" for="onlyNeg">Solo mesi negativi</label>
+              </div>
+              <button class="btn btn-success btn-sm" (click)="compute()">Ricalcola</button>
+            </div>
+          </div>
+          <p *ngIf="forecast as f" class="small mt-2" [class.text-warning]="!f.fattibile" [class.text-secondary]="f.fattibile">{{ f.messaggio }}</p>
+
+          <div class="table-responsive mt-2" *ngIf="forecast as f">
+            <table class="table table-sm table-hover align-middle table-sticky">
+              <thead class="table-light">
+                <tr>
+                  <th>Mese</th>
+                  <th class="text-end">Saldo attuale CC</th>
+                  <th class="text-end">Entrate</th>
+                  <th class="text-end">di cui Stipendio</th>
+                  <th class="text-end">Uscite</th>
+                  <th class="text-end">Bilancio mese</th>
+                  <th class="text-end">Bonifico → Prepagata</th>
+                  <th class="text-end">Saldo finale CC</th>
+                  <th>Segno</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let m of displayedMonths">
+                  <td>{{ m.mese }}</td>
+                  <td class="text-end">{{ m.saldoAttuale | number:'1.2-2':'it' }}</td>
+                  <td class="text-end">{{ m.entrate | number:'1.2-2':'it' }}</td>
+                  <td class="text-end">{{ m.stipendio | number:'1.2-2':'it' }}</td>
+                  <td class="text-end">{{ m.uscite | number:'1.2-2':'it' }}</td>
+                  <td class="text-end" [class.badge-pos]="m.bilancio >= 0" [class.badge-neg]="m.bilancio < 0">{{ m.bilancio | number:'1.2-2':'it' }}</td>
+                  <td class="text-end">{{ m.bonificoPrepagata | number:'1.2-2':'it' }}</td>
+                  <td class="text-end">{{ m.saldoFinale | number:'1.2-2':'it' }}</td>
+                  <td [class.badge-pos]="m.saldoFinale >= 0" [class.badge-neg]="m.saldoFinale < 0">{{ m.saldoFinale >= 0 ? '✓' : '!' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="row g-3 mt-2" *ngIf="forecast as f">
+            <div class="col-md-4"><strong>Trasferibile totale anno:</strong> {{ totalTransferable | number:'1.2-2':'it' }} €</div>
+            <div class="col-md-4"><strong>Saldo finale anno previsto (CC):</strong> {{ finalBalance | number:'1.2-2':'it' }} €</div>
+          </div>
+
+          <div class="mt-4">
+            <canvas #chartCanvas height="100"></canvas>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="text-center text-secondary small py-4">Angular 9 + Bootstrap 5 · Export CSV/XLSX · Chart.js · Sticky header · Filtri · Autosave LocalStorage</footer>
+</main>
