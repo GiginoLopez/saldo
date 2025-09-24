@@ -1,31 +1,86 @@
 <div class="container">
   <h2 class="mb-3">Dashboard</h2>
-  <div class="row g-3 mb-3">
+
+  <!-- Obiettivi: Importo iniziale e finale -->
+  <form class="row g-2 align-items-end mb-3" (ngSubmit)="salvaObiettivi()">
+    <div class="col-md-3">
+      <label class="form-label">Importo iniziale (€)</label>
+      <input type="number" class="form-control" [(ngModel)]="importoIniziale" name="importoIniziale" step="0.01" />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Importo finale obiettivo (€)</label>
+      <input type="number" class="form-control" [(ngModel)]="importoFinale" name="importoFinale" step="0.01" />
+    </div>
+    <div class="col-md-2 d-grid">
+      <button class="btn btn-primary" type="submit">Salva obiettivi</button>
+    </div>
     <div class="col-md-4">
-      <div class="card border-success">
+      <div class="small text-muted">L'importo finale è l'obiettivo da raggiungere entro fine anno.</div>
+    </div>
+  </form>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-3">
+      <div class="card border-secondary h-100">
+        <div class="card-body">
+          <div class="card-title h6">Importo iniziale</div>
+          <div class="display-6">{{ importoIniziale | number:'1.2-2' }}€</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-success h-100">
         <div class="card-body">
           <div class="card-title h6">Totale Entrate</div>
           <div class="display-6 text-success">{{ totaleEntrate | number:'1.2-2' }}€</div>
         </div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card border-danger">
+    <div class="col-md-3">
+      <div class="card border-danger h-100">
         <div class="card-body">
           <div class="card-title h6">Totale Spese</div>
           <div class="display-6 text-danger">{{ totaleSpese | number:'1.2-2' }}€</div>
         </div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card border-primary">
+    <div class="col-md-3">
+      <div class="card border-primary h-100">
         <div class="card-body">
-          <div class="card-title h6">Saldo</div>
+          <div class="card-title h6">Saldo (Entrate - Spese)</div>
           <div class="display-6">{{ saldo | number:'1.2-2' }}€</div>
         </div>
       </div>
     </div>
   </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <div class="card border-info h-100">
+        <div class="card-body">
+          <div class="card-title h6">Progresso verso obiettivo</div>
+          <div>Attuale: <strong>{{ progresso | number:'1.2-2' }}€</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-warning h-100">
+        <div class="card-body">
+          <div class="card-title h6">Obiettivo finale (fine anno)</div>
+          <div class="display-6">{{ importoFinale | number:'1.2-2' }}€</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-dark h-100">
+        <div class="card-body">
+          <div class="card-title h6">Mancante</div>
+          <div class="display-6">{{ mancante | number:'1.2-2' }}€</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="d-flex gap-2">
     <button class="btn btn-outline-primary" (click)="exportCSV()">Esporta CSV (tutti i movimenti)</button>
     <button class="btn btn-outline-danger" (click)="azzeraDati()">Azzera dati</button>
