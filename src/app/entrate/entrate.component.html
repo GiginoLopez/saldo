@@ -1,0 +1,44 @@
+<div class="container">
+  <h2 class="mb-3">Entrate</h2>
+  <form class="row g-2 align-items-end" (ngSubmit)="aggiungi()">
+    <div class="col-md-5">
+      <label class="form-label">Descrizione</label>
+      <input class="form-control" [(ngModel)]="nuova.descrizione" name="descrizione" required />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Importo (€)</label>
+      <input type="number" class="form-control" [(ngModel)]="nuova.importo" name="importo" required step="0.01" />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Data</label>
+      <input type="date" class="form-control" [(ngModel)]="nuova.data" name="data" />
+    </div>
+    <div class="col-md-1 d-grid">
+      <button class="btn btn-primary" type="submit">Aggiungi</button>
+    </div>
+  </form>
+  <hr />
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="fw-semibold">Totale entrate: {{ totale | number:'1.2-2' }}€</div>
+  </div>
+  <table class="table table-sm table-striped">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Descrizione</th>
+        <th class="text-end">Importo</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let e of entrate; let i = index">
+        <td>{{ e.data }}</td>
+        <td>{{ e.descrizione }}</td>
+        <td class="text-end">{{ e.importo | number:'1.2-2' }}€</td>
+        <td class="text-end">
+          <button class="btn btn-link text-danger btn-sm" (click)="rimuovi(i)">✕</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
