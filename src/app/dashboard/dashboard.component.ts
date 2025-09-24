@@ -3,6 +3,16 @@ import { Component, OnInit } from '@angular/core';
 import { LocalStorageService } from '../services/local-storage.service';
 
 interface Movimento { descrizione: string; importo: number; data: string; frequenza?: 'mensile' | 'annuale'; }
+interface PianoMensile {
+  meseIdx: number;
+  mese: string;
+  entrate: number;
+  speseTotali: number; // spese mensili + (annuali/12)
+  quotaRisparmio: number;
+  eccedenza: number;
+  saldoFinePeriodo: number;
+}
+interface Entrata { descrizione: string; importo: number; data: string; tipo: 'mensile' | 'una-tantum'; }
 
 @Component({
   selector: 'app-dashboard',
@@ -10,115 +20,84 @@ interface Movimento { descrizione: string; importo: number; data: string; freque
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit {
-  entrate: Movimento[] = [];
+  entrate: Entrata[] = [];
   spese: Movimento[] = [];
 
   importoIniziale = 0;
-  importoFinale = 0; // obiettivo da raggiungere a fine anno
+  importoFinale = 0;
 
-  // Stipendi per mese (12 valori)
-  stipendi: number[] = new Array(12).fill(0);
+  // Tabella precalcolata
+  piano: PianoMensile[] = [];
 
-  // Tabella precalcolata (evita getter che ricrea array a ogni change detection)
-  piano: {
-    meseIdx: number;
-    mese: string;
-    stipendio: number;
-    entrateTotali: number;
-    speseTotali: number;         // spese mensili + quota annuali
-    quotaAnnuali: number;        // (spese annuali / 12)
-    quotaRisparmio: number;      // importo da mettere da parte nel mese
-    eccedenza: number;           // entrateTotali - speseTotali - quotaRisparmio
-    saldoFinePeriodo: number;    // importoIniziale + quotaRisparmio * mese
-  }[] = [];
-
-  // indice del tooltip aperto nella tabella (dettaglio spese)
+  // Tooltip (dettaglio spese)
   tooltipIndex: number | null = null;
 
   constructor(private ls: LocalStorageService) {
-    this.entrate = this.ls.getItem<Movimento[]>('entrate', []);
-    this.spese  = this.ls.getItem<Movimento[]>('spese', []);
-
+    this.entrate = this.ls.getItem<Entrata[]>('entrate', []) || [];
+    this.spese  = this.ls.getItem<Movimento[]>('spese', []) || [];
     this.importoIniziale = Number(this.ls.getItem<number>('importoIniziale', 0)) || 0;
     this.importoFinale   = Number(this.ls.getItem<number>('importoFinale', 0)) || 0;
-
-    const saved = this.ls.getItem<number[]>('stipendiMensili', []);
-    if (Array.isArray(saved) && saved.length === 12) {
-      this.stipendi = saved.map(v => Number(v || 0));
-    }
   }
 
-  ngOnInit(): void {
-    this.buildPiano();
+  ngOnInit(): void { this.buildPiano(); }
+
+  private sumEntrateMensiliRicorrenti(): number {
+    return this.entrate.filter(e => e.tipo === 'mensile' || !e.tipo).reduce((a, e) => a + Number(e.importo || 0), 0);
+  }
+  private sumEntrateUnaTantum(y: number, m: number): number {
+    return this.entrate
+      .filter(e => e.tipo === 'una-tantum' && this.sameMonthYear(e.data, y, m))
+      .reduce((a, e) => a + Number(e.importo || 0), 0);
   }
 
-  /** Somme globali ricorrenti ogni mese (indipendenti dalla data) */
-  private sommaEntrateRicorrenti(): number {
-    return this.entrate.reduce((acc, e) => acc + Number(e.importo || 0), 0);
-  }
-
-  private sommaSpeseMensiliRicorrenti(): number {
+  private sumSpeseMensili(): number {
     return this.spese
       .filter(s => (s.frequenza === 'mensile' || !s.frequenza))
-      .reduce((acc, s) => acc + Number(s.importo || 0), 0);
+      .reduce((a, s) => a + Number(s.importo || 0), 0);
+  }
+  private sumSpeseAnnuali(): number {
+    return this.spese.filter(s => s.frequenza === 'annuale').reduce((a, s) => a + Number(s.importo || 0), 0);
   }
 
-
-  private sommaSpeseAnnualiRicorrenti(): number {
-    return this.spese
-      .filter(s => s.frequenza === 'annuale')
-      .reduce((acc, s) => acc + Number(s.importo || 0), 0);
+  private sameMonthYear(dateIso: string, y: number, m: number): boolean {
+    const d = new Date(dateIso);
+    return d.getFullYear() === y && (d.getMonth() + 1) === m;
   }
 
-  /** Quota obiettivo da accantonare ogni mese per raggiungere importoFinale a fine anno */
   private quotaRisparmioMensile(): number {
     return (Number(this.importoFinale || 0) - Number(this.importoIniziale || 0)) / 12;
   }
 
-  /** Ricostruisce la tabella una sola volta quando cambiano i dati */
-  private buildPiano(): void {
+  private buildPiano() {
+    const y = new Date().getFullYear();
     const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
 
-    const entrateRicorrenti = this.sommaEntrateRicorrenti();
-    const speseMensili = this.sommaSpeseMensiliRicorrenti();
-    const quotaAnnuali = this.sommaSpeseAnnualiRicorrenti() / 12;
+    const entrateRicorrenti = this.sumEntrateMensiliRicorrenti();
+    const speseMensili = this.sumSpeseMensili();
+    const quotaAnnuali = this.sumSpeseAnnuali() / 12;
     const quotaRisparmio = this.quotaRisparmioMensile();
 
-    const out: typeof this.piano = [];
+    const out: PianoMensile[] = [];
     for (let m = 1; m <= 12; m++) {
-      const stipendio = Number(this.stipendi[m - 1] || 0);
-      const entrateTotali = entrateRicorrenti + stipendio;
+      const entrateM = entrateRicorrenti + this.sumEntrateUnaTantum(y, m);
       const speseTotali = speseMensili + quotaAnnuali;
-      const eccedenza = entrateTotali - speseTotali - quotaRisparmio;
+      const eccedenza = entrateM - speseTotali - quotaRisparmio;
       const saldoFinePeriodo = Number(this.importoIniziale || 0) + quotaRisparmio * m;
-      out.push({
-        meseIdx: m,
-        mese: mesi[m - 1],
-        stipendio,
-        entrateTotali,
-        speseTotali,
-        quotaAnnuali,
-        quotaRisparmio,
-        eccedenza,
-        saldoFinePeriodo
-      });
+      out.push({ meseIdx: m, mese: mesi[m - 1], entrate: entrateM, speseTotali, quotaRisparmio, eccedenza, saldoFinePeriodo });
     }
     this.piano = out;
   }
 
-  salvaObiettivi() {
-    this.ls.setItem('importoIniziale', Number(this.importoIniziale || 0));
-    this.ls.setItem('importoFinale', Number(this.importoFinale || 0));
-    this.buildPiano();
+  // --- Dettaglio tooltip spese ---
+  get dettaglioSpeseMensili() {
+    return this.spese
+      .filter(s => (s.frequenza === 'mensile' || !s.frequenza))
+      .map(s => ({ descrizione: s.descrizione, importo: Number(s.importo || 0) }));
   }
-
-  onStipendioChange() {
-    // salva l'intero array stipendi (12 posizioni)
-    this.ls.setItem('stipendiMensili', this.stipendi.map(v => Number(v || 0)));
-    this.buildPiano();
+  get dettaglioSpeseAnnuali() {
+    return this.spese
+      .filter(s => s.frequenza === 'annuale')
+      .map(s => ({ descrizione: s.descrizione, importoAnnuale: Number(s.importo || 0), importoMensile: Number(s.importo || 0) / 12 }));
   }
-
-  toggleTooltip(i: number) {
-    this.tooltipIndex = this.tooltipIndex === i ? null : i;
-  }
+  toggleTooltip(i: number) { this.tooltipIndex = this.tooltipIndex === i ? null : i; }
 }

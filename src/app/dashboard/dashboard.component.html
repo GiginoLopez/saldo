@@ -2,8 +2,8 @@
 <div class="container">
   <h2 class="mb-3">Dashboard</h2>
 
-  <!-- Obiettivi: Importo iniziale e finale -->
-  <form class="row g-2 align-items-end mb-3" (ngSubmit)="salvaObiettivi()">
+  <!-- Riepilogo obiettivi (rimane invariato) -->
+  <form class="row g-2 align-items-end mb-3" (ngSubmit)="$event.preventDefault()">
     <div class="col-md-3">
       <label class="form-label">Importo iniziale (€)</label>
       <input type="number" class="form-control" [(ngModel)]="importoIniziale" name="importoIniziale" step="0.01" />
@@ -12,12 +12,9 @@
       <label class="form-label">Importo finale obiettivo (€)</label>
       <input type="number" class="form-control" [(ngModel)]="importoFinale" name="importoFinale" step="0.01" />
     </div>
-    <div class="col-md-2 d-grid">
-      <button class="btn btn-primary" type="submit">Salva obiettivi</button>
-    </div>
   </form>
 
-  <!-- Piano mensile -->
+  <!-- Piano mensile con spese unificate e tooltip dettaglio -->
   <div class="card position-relative">
     <div class="card-body">
       <div class="card-title h5 mb-3">Piano mensile</div>
@@ -26,7 +23,6 @@
           <thead>
             <tr>
               <th>Mese</th>
-              <th class="text-end" style="width:14rem">Stipendio</th>
               <th class="text-end">Entrate</th>
               <th class="text-end">Spese (mensili + annuali/12)</th>
               <th class="text-end">Da mettere da parte</th>
@@ -37,14 +33,26 @@
           <tbody>
             <tr *ngFor="let r of piano; let i = index" class="align-middle">
               <td>{{ r.mese }}</td>
-              <td class="text-end">
-                <input type="number" class="form-control form-control-sm d-inline-block text-end" style="max-width: 10rem;"
-                       [(ngModel)]="stipendi[i]" [name]="'stipendio_'+i" step="1"
-                       [ngModelOptions]="{standalone:true}" (blur)="onStipendioChange()" />
-              </td>
-              <td class="text-end">{{ r.entrateTotali | number:'1.2-2' }}€</td>
+              <td class="text-end">{{ r.entrate | number:'1.2-2' }}€</td>
               <td class="text-end position-relative">
-                {{ r.speseTotali | number:'1.2-2' }}€
+                <button type="button" class="btn btn-link p-0" (click)="toggleTooltip(i)">
+                  {{ r.speseTotali | number:'1.2-2' }}€
+                </button>
+                <div *ngIf="tooltipIndex === i"
+                     class="border rounded bg-light shadow-sm p-2"
+                     style="position:absolute; right:0; top:100%; z-index:1000; min-width: 280px;">
+                  <div class="fw-semibold mb-1">Dettaglio spese</div>
+                  <div class="small text-muted">Mensili</div>
+                  <ul class="mb-2 ps-3">
+                    <li *ngFor="let d of dettaglioSpeseMensili">{{ d.descrizione }} — {{ d.importo | number:'1.2-2' }}€</li>
+                    <li *ngIf="!dettaglioSpeseMensili.length" class="text-muted">Nessuna</li>
+                  </ul>
+                  <div class="small text-muted">Annuali (quota mensile)</div>
+                  <ul class="mb-0 ps-3">
+                    <li *ngFor="let d of dettaglioSpeseAnnuali">{{ d.descrizione }} — {{ d.importoMensile | number:'1.2-2' }}€ <span class="text-muted">(annuo {{ d.importoAnnuale | number:'1.2-2' }}€)</span></li>
+                    <li *ngIf="!dettaglioSpeseAnnuali.length" class="text-muted">Nessuna</li>
+                  </ul>
+                </div>
               </td>
               <td class="text-end">{{ r.quotaRisparmio | number:'1.2-2' }}€</td>
               <td class="text-end">{{ r.eccedenza | number:'1.2-2' }}€</td>
