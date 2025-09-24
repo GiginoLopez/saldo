@@ -1,7 +1,12 @@
 
-<div class="container">
-  <h2 class="mb-3">Dashboard</h2>
+<div class="dashboard-hero">
+  <div class="container py-3">
+    <h2 class="mb-0">Dashboard</h2>
+    <small class="text-white-50">Riepilogo & andamento</small>
+  </div>
+</div>
 
+<div class="container mt-3">
   <form class="row g-2 align-items-end mb-3" (ngSubmit)="salvaObiettivi()">
     <div class="col-md-3">
       <label class="form-label">Importo iniziale (€)</label>
@@ -16,17 +21,18 @@
     </div>
   </form>
 
-  <div class="card position-relative">
+  <!-- Tabella piano mensile (13 periodi) -->
+  <div class="card shadow-soft position-relative">
     <div class="card-body">
       <div class="card-title h5 mb-3">Piano mensile</div>
       <div class="table-responsive">
         <table class="table table-sm align-middle">
           <thead>
             <tr>
-              <th>Mese</th>
+              <th>Periodo</th>
               <th class="text-end" style="width:14rem">Stipendio</th>
               <th class="text-end">Entrate</th>
-              <th class="text-end">Spese (mensili + annuali/12)</th>
+              <th class="text-end">Spese</th>
               <th class="text-end">Da mettere da parte</th>
               <th class="text-end">Eccedenza</th>
               <th class="text-end">Saldo fine periodo</th>
@@ -37,8 +43,8 @@
               <td>{{ r.mese }}</td>
               <td class="text-end">
                 <input type="number" class="form-control form-control-sm d-inline-block text-end" style="max-width: 10rem;"
-                       [(ngModel)]="stipendi[i]" [name]="'stipendio_'+i" step="0.01"
-                       [ngModelOptions]="{standalone:true}" (ngModelChange)="onStipendioChange()" />
+                       [(ngModel)]="stipendi[i]" [name]="'stipendio_'+i" step="1"
+                       [ngModelOptions]="{standalone:true}" (blur)="onStipendioChange()" />
               </td>
               <td class="text-end">{{ r.entrate | number:'1.2-2' }}€</td>
               <td class="text-end position-relative">
@@ -47,8 +53,8 @@
                 </button>
                 <div *ngIf="tooltipIndex === i" class="border rounded bg-light shadow-sm p-2"
                      style="position:absolute; right:0; top:100%; z-index:1000; min-width: 260px;">
-                  <div>Spese Mensili : <strong>{{ totaleSpeseMensili | number:'1.2-2' }}€</strong></div>
-                  <div>Spese Annuali : <strong>{{ quotaSpeseAnnualiMensile | number:'1.2-2' }}€</strong></div>
+                  <div>Spese Mensili : <strong>{{ totaleSpeseMensili | number:'1.2-2' }}€</strong> <span class="text-muted" *ngIf="r.mese === '13ª'">(non applicate su 13ª)</span></div>
+                  <div>Spese Annuali : <strong>{{ quotaSpeseAnnualiMensile | number:'1.2-2' }}€</strong> <span class="text-muted">(ripartite su 13)</span></div>
                 </div>
               </td>
               <td class="text-end">{{ r.quotaRisparmio | number:'1.2-2' }}€</td>
@@ -57,7 +63,29 @@
             </tr>
           </tbody>
         </table>
+        <div class="small text-muted mt-1">* Le spese mensili non si applicano sulla 13ª.</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Grafico Entrate vs Spese -->
+  <div class="card shadow-soft mt-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="card-title h5 mb-0">Grafico Entrate vs Spese</div>
+        <div class="legend small">
+          <span class="legend-dot legend-e"></span> Entrate
+          <span class="legend-dot legend-s ms-3"></span> Spese
+        </div>
+      </div>
+      <div class="bars" role="img" aria-label="Grafico a barre Entrate e Spese per periodo">
+        <div class="bar-col" *ngFor="let d of chartData">
+          <div class="bar bar--e" [style.height.%]="d.hE" [attr.aria-label]="'Entrate '+d.label+': '+(d.entrate | number:'1.0-0')+'€'"></div>
+          <div class="bar bar--s" [style.height.%]="d.hS" [attr.aria-label]="'Spese '+d.label+': '+(d.spese | number:'1.0-0')+'€'"></div>
+          <div class="bar-label">{{ d.label }}</div>
+        </div>
+      </div>
+      <div class="text-end text-muted small mt-2">Scala massima: {{ chartMax | number:'1.0-0' }}€</div>
     </div>
   </div>
 </div>

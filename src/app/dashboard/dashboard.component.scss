@@ -1,0 +1,42 @@
+
+/* --- FIX grafico: rendi visibili le barre e allinea al fondo --- */
+.bars {  /* contenitore colonne */
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  align-items: end;            /* allinea le colonne al fondo */
+  gap: 10px;
+  height: 240px;              /* altezza fissa per calcolo % */
+}
+
+/* Ogni colonna del grafico */
+.bar-col {
+  height: 200px;              /* base di riferimento per le % delle barre */
+  display: flex;              /* stack verticale: Entrate sopra Spese */
+  flex-direction: column;
+  justify-content: flex-end;  /* appoggia le barre in basso */
+  align-items: center;
+  gap: 6px;
+}
+
+/* Barre */
+.bar {
+  width: 60%;                 /* larghezza visibile della barra */
+  border-radius: 6px 6px 0 0;
+  background: #e9ecef;
+  transition: height .25s ease;
+}
+.bar--e { background: #4e79a7; }   /* Entrate */
+.bar--s { background: #e15759; }   /* Spese */
+
+/* Etichetta mese */
+.bar-label { text-align: center; font-size: 0.75rem; color: #6c757d; margin-top: 4px; }
+
+/* Banner gradiente e card morbide (lasciati intatti se già presenti) */
+.dashboard-hero { background: linear-gradient(90deg, #3a7bd5 0%, #00d2ff 100%); color:#fff; }
+.shadow-soft { box-shadow: 0 0.25rem 1rem rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.05); }
+
+/* Ritocchi tabella */
+.table thead th { white-space: nowrap; }
+.table tbody td { vertical-align: middle; }
+.btn-link { color: #0d6efd; text-decoration: none; }
+.btn-link:hover { text-decoration: underline; }
