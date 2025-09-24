@@ -24,59 +24,61 @@ export class DashboardComponent {
     this.importoFinale   = Number(this.ls.getItem<number>('importoFinale', 0));
   }
 
-  get totaleEntrate(): number {
-    return this.entrate.reduce((a, b) => a + Number(b.importo || 0), 0);
-  }
-  get totaleSpese(): number {
-    return this.spese.reduce((a, b) => a + Number(b.importo || 0), 0);
-  }
-  get saldo(): number {
-    return this.totaleEntrate - this.totaleSpese;
+  /** Somme globali indipendenti dalla data (applicate ogni mese) */
+  get sommaEntrateMensileRicorrente(): number {
+    return this.entrate.reduce((acc, e) => acc + Number(e.importo || 0), 0);
   }
 
-  get year(): number { return new Date().getFullYear(); }
-
-  private sameMonthYear(dateIso: string, y: number, m: number): boolean {
-    const d = new Date(dateIso);
-    return d.getFullYear() === y && (d.getMonth() + 1) === m;
-    }
-
-  private sumEntrate(y: number, m: number): number {
-    return this.entrate
-      .filter(e => this.sameMonthYear(e.data, y, m))
-      .reduce((acc, e) => acc + Number(e.importo || 0), 0);
-  }
-
-  private sumSpeseMensili(y: number, m: number): number {
+  get sommaSpeseMensiliRicorrenti(): number {
     return this.spese
-      .filter(s => (s.frequenza === 'mensile' || !s.frequenza) && this.sameMonthYear(s.data, y, m))
+      .filter(s => (s.frequenza === 'mensile' || !s.frequenza))
       .reduce((acc, s) => acc + Number(s.importo || 0), 0);
   }
 
-  private sumSpeseAnnualiAnno(y: number): number {
+  get sommaSpeseAnnualiRicorrenti(): number {
     return this.spese
-      .filter(s => s.frequenza === 'annuale' && new Date(s.data).getFullYear() === y)
+      .filter(s => s.frequenza === 'annuale')
       .reduce((acc, s) => acc + Number(s.importo || 0), 0);
   }
 
-  get deltaMensileTarget(): number {
+  /** Quota obiettivo da accantonare ogni mese per raggiungere importoFinale a fine anno */
+  get quotaRisparmioMensile(): number {
     return (Number(this.importoFinale || 0) - Number(this.importoIniziale || 0)) / 12;
   }
 
-  get pianoMensile(): { meseIdx: number; mese: string; targetFineMese: number; diffMensile: number }[] {
-    const y = this.year;
-    const quotaAnnuali = this.sumSpeseAnnualiAnno(y) / 12;
+  /** Piano dettagliato mese per mese (tutti i movimenti considerati ricorrenti mensilmente) */
+  get pianoMensile(): {
+    meseIdx: number;
+    mese: string;
+    entrate: number;
+    speseMensili: number;
+    quotaAnnuali: number;        // (spese annuali / 12)
+    quotaRisparmio: number;      // importo da mettere da parte nel mese
+    eccedenza: number;           // entrate - speseMensili - quotaAnnuali - quotaRisparmio
+    saldoFinePeriodo: number;    // importoIniziale + quotaRisparmio * mese
+  }[] {
     const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-    const out = [] as { meseIdx: number; mese: string; targetFineMese: number; diffMensile: number }[];
 
+    const entrateM = this.sommaEntrateMensileRicorrente;
+    const speseMensiliM = this.sommaSpeseMensiliRicorrenti;
+    const quotaAnnuali = this.sommaSpeseAnnualiRicorrenti / 12;
+    const quotaRisparmio = this.quotaRisparmioMensile;
+
+    const out: any[] = [];
     for (let m = 1; m <= 12; m++) {
-      const entrateM = this.sumEntrate(y, m);
-      const speseMensiliM = this.sumSpeseMensili(y, m);
-      const diffMensile = entrateM - speseMensiliM - quotaAnnuali;
-      const targetFineMese = Number(this.importoIniziale || 0) + this.deltaMensileTarget * m;
-      out.push({ meseIdx: m, mese: mesi[m - 1], targetFineMese, diffMensile });
+      const eccedenza = entrateM - speseMensiliM - quotaAnnuali - quotaRisparmio;
+      const saldoFinePeriodo = Number(this.importoIniziale || 0) + quotaRisparmio * m;
+      out.push({
+        meseIdx: m,
+        mese: mesi[m - 1],
+        entrate: entrateM,
+        speseMensili: speseMensiliM,
+        quotaAnnuali: quotaAnnuali,
+        quotaRisparmio: quotaRisparmio,
+        eccedenza: eccedenza,
+        saldoFinePeriodo: saldoFinePeriodo
+      });
     }
-
     return out;
   }
 

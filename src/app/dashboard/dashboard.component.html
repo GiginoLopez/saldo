@@ -17,28 +17,39 @@
     </div>
   </form>
 
-  <!-- Piano mensile -->
+  <!-- Piano mensile con ricorrenza indipendente dalla data -->
   <div class="card">
     <div class="card-body">
-      <div class="card-title h5 mb-3">Piano mensile</div>
+      <div class="card-title h5 mb-3">Piano mensile (entrate e spese applicate ogni mese indipendentemente dalla data)</div>
       <div class="small text-muted mb-2">
-        Target fine mese calcolato come incremento costante mensile tra importo iniziale e obiettivo finale.
-        Differenza mensile = Entrate del mese − Spese mensili del mese − (Somma spese annuali dell'anno / 12).
+        Entrate mese = somma di tutte le entrate.<br>
+        Spese mensili mese = somma di tutte le spese con tipo mensile.<br>
+        Spese annuali mese = (somma spese annuali) / 12.<br>
+        Quota da mettere da parte = (Importo finale − Importo iniziale) / 12.<br>
+        Eccedenza = Entrate − Spese mensili − Spese annuali/12 − Quota da mettere da parte.
       </div>
       <div class="table-responsive">
         <table class="table table-sm align-middle">
           <thead>
             <tr>
-              <th style="width:12%">Mese</th>
-              <th class="text-end" style="width:22%">Target fine mese</th>
-              <th class="text-end" style="width:22%">Differenza mensile</th>
+              <th>Mese</th>
+              <th class="text-end">Entrate</th>
+              <th class="text-end">Spese mensili</th>
+              <th class="text-end">Spese annuali / 12</th>
+              <th class="text-end">Da mettere da parte</th>
+              <th class="text-end">Eccedenza</th>
+              <th class="text-end">Saldo fine periodo</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let r of pianoMensile">
               <td>{{ r.mese }}</td>
-              <td class="text-end">{{ r.targetFineMese | number:'1.2-2' }}€</td>
-              <td class="text-end">{{ r.diffMensile | number:'1.2-2' }}€</td>
+              <td class="text-end">{{ r.entrate | number:'1.2-2' }}€</td>
+              <td class="text-end">{{ r.speseMensili | number:'1.2-2' }}€</td>
+              <td class="text-end">{{ r.quotaAnnuali | number:'1.2-2' }}€</td>
+              <td class="text-end">{{ r.quotaRisparmio | number:'1.2-2' }}€</td>
+              <td class="text-end">{{ r.eccedenza | number:'1.2-2' }}€</td>
+              <td class="text-end">{{ r.saldoFinePeriodo | number:'1.2-2' }}€</td>
             </tr>
           </tbody>
         </table>
