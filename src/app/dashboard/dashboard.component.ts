@@ -1,3 +1,4 @@
+
 import { Component } from '@angular/core';
 import { LocalStorageService } from '../services/local-storage.service';
 
@@ -33,14 +34,50 @@ export class DashboardComponent {
     return this.totaleEntrate - this.totaleSpese;
   }
 
-  get progresso(): number {
-    // quanto hai oggi: importo iniziale + saldo corrente
-    return Number(this.importoIniziale || 0) + this.saldo;
+  get year(): number { return new Date().getFullYear(); }
+
+  private sameMonthYear(dateIso: string, y: number, m: number): boolean {
+    const d = new Date(dateIso);
+    return d.getFullYear() === y && (d.getMonth() + 1) === m;
+    }
+
+  private sumEntrate(y: number, m: number): number {
+    return this.entrate
+      .filter(e => this.sameMonthYear(e.data, y, m))
+      .reduce((acc, e) => acc + Number(e.importo || 0), 0);
   }
 
-  get mancante(): number {
-    const diff = Number(this.importoFinale || 0) - this.progresso;
-    return diff > 0 ? diff : 0;
+  private sumSpeseMensili(y: number, m: number): number {
+    return this.spese
+      .filter(s => (s.frequenza === 'mensile' || !s.frequenza) && this.sameMonthYear(s.data, y, m))
+      .reduce((acc, s) => acc + Number(s.importo || 0), 0);
+  }
+
+  private sumSpeseAnnualiAnno(y: number): number {
+    return this.spese
+      .filter(s => s.frequenza === 'annuale' && new Date(s.data).getFullYear() === y)
+      .reduce((acc, s) => acc + Number(s.importo || 0), 0);
+  }
+
+  get deltaMensileTarget(): number {
+    return (Number(this.importoFinale || 0) - Number(this.importoIniziale || 0)) / 12;
+  }
+
+  get pianoMensile(): { meseIdx: number; mese: string; targetFineMese: number; diffMensile: number }[] {
+    const y = this.year;
+    const quotaAnnuali = this.sumSpeseAnnualiAnno(y) / 12;
+    const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+    const out = [] as { meseIdx: number; mese: string; targetFineMese: number; diffMensile: number }[];
+
+    for (let m = 1; m <= 12; m++) {
+      const entrateM = this.sumEntrate(y, m);
+      const speseMensiliM = this.sumSpeseMensili(y, m);
+      const diffMensile = entrateM - speseMensiliM - quotaAnnuali;
+      const targetFineMese = Number(this.importoIniziale || 0) + this.deltaMensileTarget * m;
+      out.push({ meseIdx: m, mese: mesi[m - 1], targetFineMese, diffMensile });
+    }
+
+    return out;
   }
 
   salvaObiettivi() {
