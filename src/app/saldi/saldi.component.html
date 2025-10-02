@@ -31,10 +31,43 @@
       </thead>
       <tbody>
         <tr *ngFor="let s of snapshots">
-          <td>{{ s.date }}</td>
-          <td class="text-end" [ngClass]="s.saldo>=0 ? 'badge-pos' : 'badge-neg'">{{ s.saldo | number:'1.2-2' }}€</td>
-          <td>{{ s.note }}</td>
-          <td class="text-end"><button class="btn btn-sm btn-outline-danger" (click)="remove(s.id)">✖</button></td>
+          <!-- DATA -->
+          <td>
+            <ng-container *ngIf="editingId !== s.id; else cellDateEdit">{{ s.date }}</ng-container>
+            <ng-template #cellDateEdit>
+              <input type="date" class="form-control form-control-sm" [(ngModel)]="editModel.date">
+            </ng-template>
+          </td>
+
+          <!-- SALDO -->
+          <td class="text-end">
+            <ng-container *ngIf="editingId !== s.id; else cellSaldoEdit">
+              <span [ngClass]="s.saldo>=0 ? 'badge-pos' : 'badge-neg'">{{ s.saldo | number:'1.2-2' }}€</span>
+            </ng-container>
+            <ng-template #cellSaldoEdit>
+              <input type="number" step="0.01" class="form-control form-control-sm text-end" [(ngModel)]="editModel.saldo">
+            </ng-template>
+          </td>
+
+          <!-- NOTE (opzionale) -->
+          <td>
+            <ng-container *ngIf="editingId !== s.id; else cellNoteEdit">{{ s.note }}</ng-container>
+            <ng-template #cellNoteEdit>
+              <input type="text" class="form-control form-control-sm" [(ngModel)]="editModel.note" placeholder="opzionale">
+            </ng-template>
+          </td>
+
+          <!-- AZIONI -->
+          <td class="text-end">
+            <ng-container *ngIf="editingId !== s.id; else actionsEdit">
+              <button class="btn btn-sm btn-outline-secondary" (click)="startEdit(s)" title="Modifica">✎</button>
+              <button class="btn btn-sm btn-outline-danger ms-1" (click)="remove(s.id)" title="Elimina">✖</button>
+            </ng-container>
+            <ng-template #actionsEdit>
+              <button class="btn btn-sm btn-primary" (click)="saveEdit()">Salva</button>
+              <button class="btn btn-sm btn-secondary ms-1" (click)="cancelEdit()">Annulla</button>
+            </ng-template>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -42,9 +75,9 @@
 
   <div class="card shadow-soft">
     <div class="card-body">
-      <h5 class="card-title mb-2">Grafico temporale: reale vs obiettivo</h5>
+      <h5 class="card-title mb-2">Grafico temporale (Gen–Dic): Reale vs Saldo fine periodo</h5>
       <canvas #chartCanvas height="120"></canvas>
-      <p class="text-muted small mt-2">Punti verdi = saldo ≥ 0; rossi = saldo &lt; 0. Barre verdi/rosse: differenza (Δ) fra saldo reale e traiettoria verso l'obiettivo annuale.</p>
+      <p class="text-muted small mt-2">Y parte sempre da 0. La serie reale mostra 13 valori: 0 prima del primo snapshot, ultimo valore noto dopo l'ultimo, carry-forward tra periodi.</p>
     </div>
   </div>
 </div>

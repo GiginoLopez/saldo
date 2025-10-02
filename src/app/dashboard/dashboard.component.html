@@ -52,9 +52,9 @@
                   {{ r.speseTotali | number:'1.2-2' }}€
                 </button>
                 <div *ngIf="tooltipIndex === i" class="border rounded bg-light shadow-sm p-2"
-                     style="position:absolute; right:0; top:100%; z-index:1000; min-width: 260px;">
-                  <div>Spese Mensili : <strong>{{ totaleSpeseMensili | number:'1.2-2' }}€</strong> <span class="text-muted" *ngIf="r.mese === '13ª'">(non applicate su 13ª)</span></div>
-                  <div>Spese Annuali : <strong>{{ quotaSpeseAnnualiMensile | number:'1.2-2' }}€</strong> <span class="text-muted">(ripartite su 13)</span></div>
+                     style="position:absolute; right:0; top:100%; z-index:1000; min-width: 200px;">
+                  <div>Spese Mensili : <strong>{{ totaleSpeseMensili | number:'1.2-2' }}€</strong></div><div><span class="text-muted" *ngIf="r.mese === '13ª'">(non applicate su 13ª)</span></div>
+                  <div>Spese Annuali : <strong>{{ quotaSpeseAnnualiMensile | number:'1.2-2' }}€</strong></div><div><span class="text-muted">(ripartite su 13)</span></div>
                 </div>
               </td>
               <td class="text-end">{{ r.quotaRisparmio | number:'1.2-2' }}€</td>
@@ -64,6 +64,7 @@
           </tbody>
         </table>
         <div class="small text-muted mt-1">* Le spese mensili non si applicano sulla 13ª.</div>
+        <div class="small text-muted mt-1">** Le spese annuali sono ripartite in 13 mensilità.</div>
       </div>
     </div>
   </div>

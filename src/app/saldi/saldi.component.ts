@@ -2,6 +2,7 @@ import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Chart } from 'chart.js';
 import { StorageService } from '../services/storage.service';
+import { LocalStorageService } from '../services/local-storage.service';
 import { CcSnapshot, Year, YearData } from '../models';
 
 function uid(prefix: string) { return `${prefix}_${Math.random().toString(36).slice(2,9)}`; }
@@ -20,7 +21,15 @@ export class SaldiComponent implements OnInit {
   @ViewChild('chartCanvas', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
   private chart: Chart | null = null;
 
-  constructor(private fb: FormBuilder, private storage: StorageService) {}
+  // --- editing state ---
+  editingId: string | null = null;
+  editModel: { date: string; saldo: number; note: string } = { date: '', saldo: 0, note: '' };
+
+  constructor(
+    private fb: FormBuilder,
+    private storage: StorageService,
+    private ls: LocalStorageService
+  ) {}
 
   ngOnInit(): void {
     this.data = this.storage.getYearData(this.currentYear);
@@ -43,6 +52,28 @@ export class SaldiComponent implements OnInit {
     this.renderChart();
   }
 
+  startEdit(s: CcSnapshot) {
+    this.editingId = s.id;
+    this.editModel = { date: s.date, saldo: s.saldo, note: s.note || '' };
+  }
+
+  cancelEdit() {
+    this.editingId = null;
+  }
+
+  saveEdit() {
+    if (!this.data || !this.editingId) return;
+    const idx = this.data.ccSnapshots.findIndex(x => x.id === this.editingId);
+    if (idx >= 0) {
+      const m = this.editModel;
+      this.data.ccSnapshots[idx] = { ...this.data.ccSnapshots[idx], date: m.date, saldo: Number(m.saldo||0), note: m.note||'' };
+      this.persist();
+      this.sortSnapshots();
+      this.renderChart();
+    }
+    this.editingId = null;
+  }
+
   remove(id: string) {
     if (!this.data) return;
     this.data.ccSnapshots = this.data.ccSnapshots.filter(x => x.id !== id);
@@ -59,72 +90,81 @@ export class SaldiComponent implements OnInit {
 
   private destroyChart() { if (this.chart) { this.chart.destroy(); this.chart = null; } }
 
-  // Traiettoria target ricavata dal "Saldo fine periodo" su 13 periodi (Gen..Nov, 13ª, Dic)
-  private buildTargetFunction() {
-    const cfg = this.data?.config;
-    const year = this.currentYear;
-    const s0 = (cfg?.saldoInizialeCC ?? 0);
-    const sF = (cfg?.saldoFinaleDesideratoCC ?? 0);
+  private buildTarget13(): { labels: string[]; tAnchors: number[]; target: number[] } {
+    const s0 = Number(this.ls.getItem('importoIniziale', 0) || 0);
+    const sF = Number(this.ls.getItem('importoFinale', 0) || 0);
     const quota = (sF - s0) / 13;
 
-    const anchors: { t: number; v: number }[] = [];
-    anchors.push({ t: new Date(year, 0, 1).getTime(), v: s0 });
-    for (let m = 1; m <= 11; m++) {
-      const lastDay = new Date(year, m, 0); // last day of month m (1..11 => Jan..Nov)
-      anchors.push({ t: lastDay.getTime(), v: s0 + quota * m });
-    }
-    anchors.push({ t: new Date(year, 11, 15).getTime(), v: s0 + quota * 12 }); // 13ª
-    anchors.push({ t: new Date(year, 11, 31).getTime(), v: s0 + quota * 13 }); // Dic
+    const labels = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','13ª','Dic'];
+    const year = this.currentYear;
 
-    const f = (dateISO: string) => {
-      const t = new Date(dateISO).getTime();
-      if (t <= anchors[0].t) return anchors[0].v;
-      if (t >= anchors[anchors.length - 1].t) return anchors[anchors.length - 1].v;
-      for (let i = 1; i < anchors.length; i++) {
-        const a = anchors[i - 1];
-        const b = anchors[i];
-        if (t <= b.t) {
-          const w = (t - a.t) / Math.max(1, (b.t - a.t));
-          return a.v + (b.v - a.v) * w;
-        }
+    const tAnchors: number[] = [];
+    for (let m = 1; m <= 11; m++) {
+      const lastDay = new Date(year, m, 0);
+      tAnchors.push(lastDay.getTime());
+    }
+    tAnchors.push(new Date(year, 11, 15).getTime()); // 13ª
+    tAnchors.push(new Date(year, 11, 31).getTime()); // Dic
+
+    const target = Array.from({length: 13}, (_,i)=> s0 + quota * (i+1));
+    return { labels, tAnchors, target };
+  }
+
+  private buildReal13(tAnchors: number[]): number[] {
+    const snaps = this.snapshots.slice().sort((a,b)=>a.date.localeCompare(b.date));
+    if (snaps.length === 0) return new Array(13).fill(0);
+
+    const firstT = new Date(snaps[0].date).getTime();
+    const lastT = new Date(snaps[snaps.length-1].date).getTime();
+
+    const findLastLE = (t: number): number | null => {
+      let val: number | null = null;
+      for (const s of snaps) {
+        const ts = new Date(s.date).getTime();
+        if (ts <= t) val = s.saldo; else break;
       }
-      return anchors[anchors.length - 1].v;
+      return val;
     };
-    return f;
+
+    return tAnchors.map(t => {
+      if (t < firstT) return 0;
+      if (t > lastT) return snaps[snaps.length-1].saldo;
+      const le = findLastLE(t);
+      return le == null ? 0 : le;
+    });
   }
 
   private renderChart() {
     if (!this.chartCanvas) return;
     this.destroyChart();
-    const s = this.snapshots;
-    const labels = s.map(x => x.date.slice(8,10) + '/' + x.date.slice(5,7));
 
-    const targetFn = this.buildTargetFunction();
-    const actual = s.map(x => x.saldo);
-    const target = s.map(x => targetFn(x.date));
-    const delta = actual.map((v,i)=> Math.round((v - target[i]) * 100) / 100);
+    const { labels, tAnchors, target } = this.buildTarget13();
+    const real = this.buildReal13(tAnchors);
 
-    const pointColors = actual.map(v => v >= 0 ? 'rgba(6,110,43,0.9)' : 'rgba(185,28,28,0.9)');
-    const barColors = delta.map(v => v >= 0 ? 'rgba(6,110,43,0.5)' : 'rgba(185,28,28,0.5)');
+    const pointColors = real.map(v => v >= 0 ? 'rgba(6,110,43,0.9)' : 'rgba(185,28,28,0.9)');
 
     this.chart = new Chart(this.chartCanvas.nativeElement.getContext('2d')!, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels,
         datasets: [
-          { type: 'line', label: 'Saldo reale CC', data: actual, borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.15)', pointBackgroundColor: pointColors, lineTension: .2, yAxisID: 'y' },
-          { type: 'line', label: 'Traiettoria (Saldo fine periodo)', data: target, borderColor: '#6c757d', backgroundColor: 'rgba(108,117,125,.15)', borderDash: [6,6], pointRadius: 0, yAxisID: 'y' },
-          { type: 'bar', label: 'Δ vs obiettivo', data: delta, backgroundColor: barColors, yAxisID: 'y' }
+          {
+            type: 'line', label: 'Saldo reale CC', data: real,
+            borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.15)',
+            pointBackgroundColor: pointColors, lineTension: .2, yAxisID: 'y'
+          },
+          {
+            type: 'line', label: 'Saldo fine periodo (Dashboard)', data: target,
+            borderColor: '#6c757d', backgroundColor: 'rgba(108,117,125,.15)',
+            borderDash: [6,6], pointRadius: 3, yAxisID: 'y'
+          }
         ]
       },
       options: {
         responsive: true,
-        tooltips: { callbacks: { label: (tt:any) => {
-          const i = tt.index; const d = delta[i]; const tgt = target[i];
-          return `${tt.datasetIndex===2?'Δ vs obiettivo':'Saldo'}: ${tt.yLabel} €` + (tt.datasetIndex!==2?`  (target: ${tgt.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})} € — Δ: ${d.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})} €)`: '');
-        }}},
+        tooltips: { callbacks: { label: (tt:any) => `${tt.datasetLabel}: ${tt.yLabel} €` } },
         scales: {
-          yAxes: [{ id: 'y', ticks: { callback: (v:any)=> v+" €" } }],
+          yAxes: [{ id: 'y', ticks: { beginAtZero: true, suggestedMin: 0, callback: (v:any)=> v+" €" } }],
           xAxes: [{ gridLines: { display: false } }]
         },
         legend: { display: true }
