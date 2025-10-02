@@ -1,4 +1,3 @@
-
 import { Component } from '@angular/core';
 import { LocalStorageService } from '../services/local-storage.service';
 
@@ -39,6 +38,14 @@ export class EntrateComponent {
 
   rimuovi(i: number) {
     this.entrate.splice(i, 1);
+    this.entrate = [...this.entrate];
+    this.persist();
+  }
+
+  // ⬇️ Aggiunta minima: persistenza su blur dell'importo
+  onImportoBlur(i: number) {
+    // Normalizza a numero e crea nuova reference per triggerare change detection
+    this.entrate[i].importo = Number(this.entrate[i].importo || 0);
     this.entrate = [...this.entrate];
     this.persist();
   }

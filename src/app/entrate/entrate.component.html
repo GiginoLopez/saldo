@@ -1,4 +1,3 @@
-
 <div class="container">
   <h2 class="mb-3">Entrate</h2>
 
@@ -38,7 +37,7 @@
         <th>Data</th>
         <th>Descrizione</th>
         <th>Tipo</th>
-        <th class="text-end">Importo</th>
+        <th class="text-end" style="width:30%">Importo</th>
         <th></th>
       </tr>
     </thead>
@@ -47,7 +46,16 @@
         <td>{{ e.data }}</td>
         <td>{{ e.descrizione }}</td>
         <td class="text-capitalize">{{ e.tipo }}</td>
-        <td class="text-end">{{ e.importo | number:'1.2-2' }}€</td>
+        <td class="text-end">
+          <input type="number"
+                 class="form-control form-control-sm text-end"
+                 [(ngModel)]="e.importo"
+                 [ngModelOptions]="{ updateOn: 'blur' }"
+                 (blur)="onImportoBlur(i)"
+                 name="importo{{i}}"
+                 step="0.01" 
+                 style="width: 45%; margin-left: auto; display: block;"/>
+        </td>
         <td class="text-end">
           <button class="btn btn-link text-danger btn-sm" (click)="rimuovi(i)">✕</button>
         </td>

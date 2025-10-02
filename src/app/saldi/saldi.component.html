@@ -1,0 +1,50 @@
+<div class="container my-3 container-narrow">
+  <h3>Saldi Conto Corrente (storico)</h3>
+
+  <form [formGroup]="form" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+      <label class="form-label">Data</label>
+      <input class="form-control" type="date" formControlName="date" />
+    </div>
+    <div class="col-auto">
+      <label class="form-label">Saldo (€)</label>
+      <input class="form-control" type="number" step="0.01" formControlName="saldo" />
+    </div>
+    <div class="col-auto">
+      <label class="form-label">Note</label>
+      <input class="form-control" type="text" formControlName="note" placeholder="opzionale" />
+    </div>
+    <div class="col-auto">
+      <button type="button" (click)="add()" class="btn btn-primary">Aggiungi</button>
+    </div>
+  </form>
+
+  <div class="table-responsive mb-3" *ngIf="snapshots.length">
+    <table class="table table-sm table-striped table-sticky">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th class="text-end">Saldo</th>
+          <th>Note</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let s of snapshots">
+          <td>{{ s.date }}</td>
+          <td class="text-end" [ngClass]="s.saldo>=0 ? 'badge-pos' : 'badge-neg'">{{ s.saldo | number:'1.2-2' }}€</td>
+          <td>{{ s.note }}</td>
+          <td class="text-end"><button class="btn btn-sm btn-outline-danger" (click)="remove(s.id)">✖</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card shadow-soft">
+    <div class="card-body">
+      <h5 class="card-title mb-2">Grafico temporale: reale vs obiettivo</h5>
+      <canvas #chartCanvas height="120"></canvas>
+      <p class="text-muted small mt-2">Punti verdi = saldo ≥ 0; rossi = saldo &lt; 0. Barre verdi/rosse: differenza (Δ) fra saldo reale e traiettoria verso l'obiettivo annuale.</p>
+    </div>
+  </div>
+</div>

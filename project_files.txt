@@ -1,0 +1,1469 @@
+﻿==== FILE: src\app\dashboard\dashboard.component.html ====
+
+<div class="dashboard-hero">
+  <div class="container py-3">
+    <h2 class="mb-0">Dashboard</h2>
+    <small class="text-white-50">Riepilogo & andamento</small>
+  </div>
+</div>
+
+<div class="container mt-3">
+  <form class="row g-2 align-items-end mb-3" (ngSubmit)="salvaObiettivi()">
+    <div class="col-md-3">
+      <label class="form-label">Importo iniziale (â‚¬)</label>
+      <input type="number" class="form-control" [(ngModel)]="importoIniziale" name="importoIniziale" step="0.01" />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Importo finale obiettivo (â‚¬)</label>
+      <input type="number" class="form-control" [(ngModel)]="importoFinale" name="importoFinale" step="0.01" />
+    </div>
+    <div class="col-md-2 d-grid">
+      <button class="btn btn-primary" type="submit">Salva obiettivi</button>
+    </div>
+  </form>
+
+  <!-- Tabella piano mensile (13 periodi) -->
+  <div class="card shadow-soft position-relative">
+    <div class="card-body">
+      <div class="card-title h5 mb-3">Piano mensile</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Periodo</th>
+              <th class="text-end" style="width:14rem">Stipendio</th>
+              <th class="text-end">Entrate</th>
+              <th class="text-end">Spese</th>
+              <th class="text-end">Da mettere da parte</th>
+              <th class="text-end">Eccedenza</th>
+              <th class="text-end">Saldo fine periodo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of piano; let i = index" class="align-middle">
+              <td>{{ r.mese }}</td>
+              <td class="text-end">
+                <input type="number" class="form-control form-control-sm d-inline-block text-end" style="max-width: 10rem;"
+                       [(ngModel)]="stipendi[i]" [name]="'stipendio_'+i" step="1"
+                       [ngModelOptions]="{standalone:true}" (blur)="onStipendioChange()" />
+              </td>
+              <td class="text-end">{{ r.entrate | number:'1.2-2' }}â‚¬</td>
+              <td class="text-end position-relative">
+                <button type="button" class="btn btn-link p-0" (click)="toggleTooltip(i)">
+                  {{ r.speseTotali | number:'1.2-2' }}â‚¬
+                </button>
+                <div *ngIf="tooltipIndex === i" class="border rounded bg-light shadow-sm p-2"
+                     style="position:absolute; right:0; top:100%; z-index:1000; min-width: 260px;">
+                  <div>Spese Mensili : <strong>{{ totaleSpeseMensili | number:'1.2-2' }}â‚¬</strong> <span class="text-muted" *ngIf="r.mese === '13Âª'">(non applicate su 13Âª)</span></div>
+                  <div>Spese Annuali : <strong>{{ quotaSpeseAnnualiMensile | number:'1.2-2' }}â‚¬</strong> <span class="text-muted">(ripartite su 13)</span></div>
+                </div>
+              </td>
+              <td class="text-end">{{ r.quotaRisparmio | number:'1.2-2' }}â‚¬</td>
+              <td class="text-end">{{ r.eccedenza | number:'1.2-2' }}â‚¬</td>
+              <td class="text-end">{{ r.saldoFinePeriodo | number:'1.2-2' }}â‚¬</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="small text-muted mt-1">* Le spese mensili non si applicano sulla 13Âª.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grafico Entrate vs Spese -->
+  <div class="card shadow-soft mt-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="card-title h5 mb-0">Grafico Entrate vs Spese</div>
+        <div class="legend small">
+          <span class="legend-dot legend-e"></span> Entrate
+          <span class="legend-dot legend-s ms-3"></span> Spese
+        </div>
+      </div>
+      <div class="bars" role="img" aria-label="Grafico a barre Entrate e Spese per periodo">
+        <div class="bar-col" *ngFor="let d of chartData">
+          <div class="bar bar--e" [style.height.%]="d.hE" [attr.aria-label]="'Entrate '+d.label+': '+(d.entrate | number:'1.0-0')+'â‚¬'"></div>
+          <div class="bar bar--s" [style.height.%]="d.hS" [attr.aria-label]="'Spese '+d.label+': '+(d.spese | number:'1.0-0')+'â‚¬'"></div>
+          <div class="bar-label">{{ d.label }}</div>
+        </div>
+      </div>
+      <div class="text-end text-muted small mt-2">Scala massima: {{ chartMax | number:'1.0-0' }}â‚¬</div>
+    </div>
+  </div>
+</div>
+
+==== FILE: src\app\dashboard\dashboard.component.scss ====
+
+/* --- FIX grafico: rendi visibili le barre e allinea al fondo --- */
+.bars {  /* contenitore colonne */
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  align-items: end;            /* allinea le colonne al fondo */
+  gap: 10px;
+  height: 240px;              /* altezza fissa per calcolo % */
+}
+
+/* Ogni colonna del grafico */
+.bar-col {
+  height: 200px;              /* base di riferimento per le % delle barre */
+  display: flex;              /* stack verticale: Entrate sopra Spese */
+  flex-direction: column;
+  justify-content: flex-end;  /* appoggia le barre in basso */
+  align-items: center;
+  gap: 6px;
+}
+
+/* Barre */
+.bar {
+  width: 60%;                 /* larghezza visibile della barra */
+  border-radius: 6px 6px 0 0;
+  background: #e9ecef;
+  transition: height .25s ease;
+}
+.bar--e { background: #4e79a7; }   /* Entrate */
+.bar--s { background: #e15759; }   /* Spese */
+
+/* Etichetta mese */
+.bar-label { text-align: center; font-size: 0.75rem; color: #6c757d; margin-top: 4px; }
+
+/* Banner gradiente e card morbide (lasciati intatti se giÃ  presenti) */
+.dashboard-hero { background: linear-gradient(90deg, #3a7bd5 0%, #00d2ff 100%); color:#fff; }
+.shadow-soft { box-shadow: 0 0.25rem 1rem rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.05); }
+
+/* Ritocchi tabella */
+.table thead th { white-space: nowrap; }
+.table tbody td { vertical-align: middle; }
+.btn-link { color: #0d6efd; text-decoration: none; }
+.btn-link:hover { text-decoration: underline; }
+
+==== FILE: src\app\dashboard\dashboard.component.ts ====
+
+import { Component, OnInit } from '@angular/core';
+import { LocalStorageService } from '../services/local-storage.service';
+
+interface Movimento { descrizione: string; importo: number; data: string; frequenza?: 'mensile' | 'annuale'; }
+interface Entrata { descrizione: string; importo: number; data: string; tipo?: 'mensile' | 'una-tantum'; }
+interface PianoMensile {
+  meseIdx: number;
+  mese: string;
+  stipendio: number;
+  entrate: number;
+  speseTotali: number;
+  quotaRisparmio: number;
+  eccedenza: number;
+  saldoFinePeriodo: number;
+}
+
+@Component({
+  selector: 'app-dashboard',
+  templateUrl: './dashboard.component.html',
+  styleUrls: ['./dashboard.component.scss']
+})
+export class DashboardComponent implements OnInit {
+  entrate: Entrata[] = [];
+  spese: Movimento[] = [];
+
+  importoIniziale = 0;
+  importoFinale = 0;
+
+  // Stipendi per 13 periodi (Gen..Nov, 13Âª, Dic)
+  stipendi: number[] = new Array(13).fill(0);
+
+  // Totali spese per tooltip
+  totaleSpeseMensili = 0;            // somma spese con frequenza mensile (o assente)
+  quotaSpeseAnnualiMensile = 0;      // (somma spese annuali) / 13
+
+  // Tabella precalcolata
+  piano: PianoMensile[] = [];
+
+  // Dati grafico (Entrate vs Spese per periodo, 13 colonne)
+  chartData: { label: string; entrate: number; spese: number; hE: number; hS: number }[] = [];
+  chartMax = 0;
+
+  tooltipIndex: number | null = null;
+
+  constructor(private ls: LocalStorageService) {
+    // Carica dati base
+    this.entrate = (this.ls.getItem<Entrata[]>('entrate', []) || []).map(e => ({
+      descrizione: String(e.descrizione || ''),
+      importo: Number(e.importo || 0),
+      data: e.data ? String(e.data) : new Date().toISOString().slice(0,10),
+      tipo: (e as any).tipo === 'una-tantum' ? 'una-tantum' : 'mensile'
+    }));
+    this.spese  = this.ls.getItem<Movimento[]>('spese', []) || [];
+
+    this.importoIniziale = Number(this.ls.getItem<number>('importoIniziale', 0)) || 0;
+    this.importoFinale   = Number(this.ls.getItem<number>('importoFinale', 0)) || 0;
+
+    // Migrazione stipendi: da 12 a 13 elementi
+    const savedStip = this.ls.getItem<number[]>('stipendiMensili', []);
+    if (Array.isArray(savedStip)) {
+      const arr = savedStip.map(v => Number(v || 0));
+      if (arr.length < 13) {
+        while (arr.length < 13) arr.push(0);
+      } else if (arr.length > 13) {
+        arr.length = 13;
+      }
+      this.stipendi = arr;
+    }
+  }
+
+  ngOnInit(): void { this.buildPiano(); }
+
+  private sameMonthYear(dateIso: string, y: number, m: number): boolean {
+    const d = new Date(dateIso);
+    return d.getFullYear() === y && (d.getMonth() + 1) === m; // m in 1..12 ONLY
+  }
+
+  private quotaRisparmioMensile(): number {
+    // Ripartizione su 13 periodi per raggiungere l'obiettivo sulla 13Âª
+    return (Number(this.importoFinale || 0) - Number(this.importoIniziale || 0)) / 13;
+  }
+
+  private buildPiano(): void {
+    const y = new Date().getFullYear();
+    // 13 etichette: inseriamo "13Âª" prima di Dicembre
+    const mesi = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','13Âª','Dic'];
+
+    const entrateRicorrenti = this.entrate
+      .filter(e => e.tipo !== 'una-tantum')
+      .reduce((a, e) => a + Number(e.importo || 0), 0);
+
+    // Spese: mensili applicate a 12 mesi (NON sulla 13Âª); annuali ripartite su 13
+    this.totaleSpeseMensili = this.spese
+      .filter(s => (s.frequenza === 'mensile' || !s.frequenza))
+      .reduce((a, s) => a + Number(s.importo || 0), 0);
+
+    const sommaAnnuali = this.spese
+      .filter(s => s.frequenza === 'annuale')
+      .reduce((a, s) => a + Number(s.importo || 0), 0);
+    this.quotaSpeseAnnualiMensile = sommaAnnuali / 13;
+
+    const quotaRisparmio = this.quotaRisparmioMensile();
+
+    const out: PianoMensile[] = [];
+    for (let m = 1; m <= 13; m++) {
+      const stipendio = Number(this.stipendi[m - 1] || 0);
+
+      // Entrate una tantum: solo per mesi 1..12 (non esiste mese 13)
+      const unaTantumM = (m <= 12)
+        ? this.entrate.filter(e => e.tipo === 'una-tantum' && this.sameMonthYear(e.data, y, m))
+                      .reduce((a, e) => a + Number(e.importo || 0), 0)
+        : 0;
+
+      const entrate = entrateRicorrenti + stipendio + unaTantumM;
+
+      // FIX: spese mensili su tutti i mesi tranne la 13Âª (m==12) + annuali/13 sempre
+      const speseMensiliPeriodo = (m === 12 ? 0 : this.totaleSpeseMensili);
+      const speseTotali = speseMensiliPeriodo + this.quotaSpeseAnnualiMensile;
+
+      const eccedenza = entrate - speseTotali - quotaRisparmio;
+      const saldoFinePeriodo = Number(this.importoIniziale || 0) + quotaRisparmio * m; // 13 quote
+
+      out.push({ meseIdx: m, mese: mesi[m - 1], stipendio, entrate, speseTotali, quotaRisparmio, eccedenza, saldoFinePeriodo });
+    }
+    this.piano = out;
+    this.buildChart();
+  }
+
+  private buildChart(): void {
+    const max = Math.max(1, ...this.piano.map(p => Math.max(p.entrate, p.speseTotali)));
+    this.chartMax = max;
+    this.chartData = this.piano.map(p => ({
+      label: p.mese,
+      entrate: p.entrate,
+      spese: p.speseTotali,
+      hE: Math.round((p.entrate / max) * 100),
+      hS: Math.round((p.speseTotali / max) * 100)
+    }));
+  }
+
+  salvaObiettivi() {
+    this.ls.setItem('importoIniziale', Number(this.importoIniziale || 0));
+    this.ls.setItem('importoFinale', Number(this.importoFinale || 0));
+    this.buildPiano();
+  }
+
+  onStipendioChange() {
+    // Persistiamo sempre 13 valori
+    const toSave = this.stipendi.slice(0, 13).map(v => Number(v || 0));
+    while (toSave.length < 13) toSave.push(0);
+    this.ls.setItem('stipendiMensili', toSave);
+    this.buildPiano();
+  }
+
+  toggleTooltip(i: number) { this.tooltipIndex = this.tooltipIndex === i ? null : i; }
+}
+
+==== FILE: src\app\entrate\entrate.component.html ====
+<div class="container">
+  <h2 class="mb-3">Entrate</h2>
+
+  <form class="row g-2 align-items-end" (ngSubmit)="aggiungi()">
+    <div class="col-md-4">
+      <label class="form-label">Descrizione</label>
+      <input class="form-control" [(ngModel)]="nuova.descrizione" name="descrizione" required />
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Importo (â‚¬)</label>
+      <input type="number" class="form-control" [(ngModel)]="nuova.importo" name="importo" required step="0.01" />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Data</label>
+      <input type="date" class="form-control" [(ngModel)]="nuova.data" name="data" />
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Tipo</label>
+      <select class="form-select" [(ngModel)]="nuova.tipo" name="tipo">
+        <option value="mensile">Mensile (ricorrente)</option>
+        <option value="una-tantum">Una tantum (solo mese indicato)</option>
+      </select>
+    </div>
+    <div class="col-md-1 d-grid">
+      <button class="btn btn-primary" type="submit">Aggiungi</button>
+    </div>
+  </form>
+
+  <hr />
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="fw-semibold">Totale: {{ totale | number:'1.2-2' }}â‚¬</div>
+  </div>
+
+  <table class="table table-sm table-striped">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Descrizione</th>
+        <th>Tipo</th>
+        <th class="text-end" style="width:30%">Importo</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let e of entrate; let i = index">
+        <td>{{ e.data }}</td>
+        <td>{{ e.descrizione }}</td>
+        <td class="text-capitalize">{{ e.tipo }}</td>
+        <td class="text-end">
+          <input type="number"
+                 class="form-control form-control-sm text-end"
+                 [(ngModel)]="e.importo"
+                 [ngModelOptions]="{ updateOn: 'blur' }"
+                 (blur)="onImportoBlur(i)"
+                 name="importo{{i}}"
+                 step="0.01" 
+                 style="width: 45%; margin-left: auto; display: block;"/>
+        </td>
+        <td class="text-end">
+          <button class="btn btn-link text-danger btn-sm" (click)="rimuovi(i)">âœ•</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+==== FILE: src\app\entrate\entrate.component.scss ====
+
+==== FILE: src\app\entrate\entrate.component.ts ====
+import { Component } from '@angular/core';
+import { LocalStorageService } from '../services/local-storage.service';
+
+export interface Entrata {
+  descrizione: string;
+  importo: number;
+  data: string; // ISO yyyy-MM-dd
+  tipo: 'mensile' | 'una-tantum';
+}
+
+@Component({
+  selector: 'app-entrate',
+  templateUrl: './entrate.component.html',
+  styleUrls: ['./entrate.component.scss']
+})
+export class EntrateComponent {
+  readonly STORAGE_KEY = 'entrate';
+  nuova: Entrata = { descrizione: '', importo: 0, data: new Date().toISOString().slice(0,10), tipo: 'mensile' };
+  entrate: Entrata[] = [];
+
+  constructor(private ls: LocalStorageService) {
+    // Migrazione: se manca 'tipo' -> 'mensile'
+    const loaded = this.ls.getItem<any[]>(this.STORAGE_KEY, []);
+    this.entrate = (loaded || []).map(e => ({
+      descrizione: String(e.descrizione || ''),
+      importo: Number(e.importo || 0),
+      data: e.data ? String(e.data) : new Date().toISOString().slice(0,10),
+      tipo: (e.tipo === 'una-tantum' || e.tipo === 'mensile') ? e.tipo : 'mensile'
+    }));
+  }
+
+  aggiungi() {
+    if (!this.nuova.descrizione || !this.nuova.importo) return;
+    this.entrate = [{ ...this.nuova }, ...this.entrate];
+    this.persist();
+    this.nuova = { descrizione: '', importo: 0, data: new Date().toISOString().slice(0,10), tipo: 'mensile' };
+  }
+
+  rimuovi(i: number) {
+    this.entrate.splice(i, 1);
+    this.entrate = [...this.entrate];
+    this.persist();
+  }
+
+  // â¬‡ï¸ Aggiunta minima: persistenza su blur dell'importo
+  onImportoBlur(i: number) {
+    // Normalizza a numero e crea nuova reference per triggerare change detection
+    this.entrate[i].importo = Number(this.entrate[i].importo || 0);
+    this.entrate = [...this.entrate];
+    this.persist();
+  }
+
+  private persist() {
+    this.ls.setItem(this.STORAGE_KEY, this.entrate);
+  }
+
+  get totale(): number {
+    return this.entrate.reduce((acc, e) => acc + Number(e.importo || 0), 0);
+  }
+}
+==== FILE: src\app\grafici\bar-chart\bar-chart.component.html ====
+<div style="display: block;">
+  <canvas baseChart
+          [datasets]="barChartData"
+          [labels]="barChartLabels"
+          [options]="barChartOptions"
+          [legend]="barChartLegend"
+          [chartType]="barChartType">
+  </canvas>
+</div>
+==== FILE: src\app\grafici\bar-chart\bar-chart.component.ts ====
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-bar-chart',
+  templateUrl: './bar-chart.component.html'
+})
+export class BarChartComponent {
+  public barChartOptions = {
+    responsive: true,
+    scales: {
+      xAxes: [{
+        display: true,
+        scaleLabel: {
+          display: true,
+          labelString: 'Categorie'
+        }
+      }],
+      yAxes: [{
+        display: true,
+        scaleLabel: {
+          display: true,
+          labelString: 'Saldo'
+        }
+      }]
+    }
+  };
+  public barChartLabels = ['Spese', 'Eccedenza'];
+  public barChartType = 'bar';
+  public barChartLegend = true;
+  public barChartData = [
+    { data: [1200, 800], label: 'Distribuzione' }
+  ];
+}
+==== FILE: src\app\grafici\doughnut-chart\doughnut-chart.component.html ====
+<div style="display: block;">
+  <canvas baseChart
+          [data]="doughnutChartData"
+          [labels]="doughnutChartLabels"
+          [chartType]="doughnutChartType">
+  </canvas>
+</div>
+==== FILE: src\app\grafici\doughnut-chart\doughnut-chart.component.ts ====
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-doughnut-chart',
+  templateUrl: './doughnut-chart.component.html'
+})
+export class DoughnutChartComponent {
+  public doughnutChartLabels = ['Spese', 'Eccedenza'];
+  public doughnutChartData = [1200, 800];
+  public doughnutChartType = 'doughnut';
+}
+==== FILE: src\app\grafici\pie-chart\pie-chart.component.html ====
+<div style="display: block;">
+  <canvas baseChart
+          [data]="pieChartData"
+          [labels]="pieChartLabels"
+          [chartType]="pieChartType">
+  </canvas>
+</div>
+==== FILE: src\app\grafici\pie-chart\pie-chart.component.ts ====
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-pie-chart',
+  templateUrl: './pie-chart.component.html'
+})
+export class PieChartComponent {
+  public pieChartLabels = ['Spese', 'Eccedenza'];
+  public pieChartData = [1200, 800];
+  public pieChartType = 'pie';
+}
+==== FILE: src\app\grafici\grafici-routing.module.ts ====
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { GraficiComponent } from './grafici.component';
+
+const routes: Routes = [
+  { path: '', component: GraficiComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
+})
+export class GraficiRoutingModule {}
+==== FILE: src\app\grafici\grafici.component.html ====
+<h2>Grafici Spese</h2>
+<app-bar-chart></app-bar-chart>
+<app-pie-chart></app-pie-chart>
+<app-doughnut-chart></app-doughnut-chart>
+
+==== FILE: src\app\grafici\grafici.component.ts ====
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-grafici',
+  templateUrl: './grafici.component.html'
+})
+export class GraficiComponent {}
+
+==== FILE: src\app\grafici\grafici.module.ts ====
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { GraficiComponent } from './grafici.component';
+import { GraficiRoutingModule } from './grafici-routing.module';
+import { ChartsModule } from 'ng2-charts';
+import { BarChartComponent } from './bar-chart/bar-chart.component';
+import { PieChartComponent } from './pie-chart/pie-chart.component';
+import { DoughnutChartComponent } from './doughnut-chart/doughnut-chart.component';
+
+@NgModule({
+  declarations: [
+    GraficiComponent,
+    BarChartComponent,
+    PieChartComponent,
+    DoughnutChartComponent
+  ],
+  imports: [
+    CommonModule,
+    ChartsModule,
+    GraficiRoutingModule
+  ]
+})
+export class GraficiModule {}
+==== FILE: src\app\saldi\saldi.component.html ====
+<div class="container my-3 container-narrow">
+  <h3>Saldi Conto Corrente (storico)</h3>
+
+  <form [formGroup]="form" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+      <label class="form-label">Data</label>
+      <input class="form-control" type="date" formControlName="date" />
+    </div>
+    <div class="col-auto">
+      <label class="form-label">Saldo (â‚¬)</label>
+      <input class="form-control" type="number" step="0.01" formControlName="saldo" />
+    </div>
+    <div class="col-auto">
+      <label class="form-label">Note</label>
+      <input class="form-control" type="text" formControlName="note" placeholder="opzionale" />
+    </div>
+    <div class="col-auto">
+      <button type="button" (click)="add()" class="btn btn-primary">Aggiungi</button>
+    </div>
+  </form>
+
+  <div class="table-responsive mb-3" *ngIf="snapshots.length">
+    <table class="table table-sm table-striped table-sticky">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th class="text-end">Saldo</th>
+          <th>Note</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let s of snapshots">
+          <td>{{ s.date }}</td>
+          <td class="text-end" [ngClass]="s.saldo>=0 ? 'badge-pos' : 'badge-neg'">{{ s.saldo | number:'1.2-2' }}â‚¬</td>
+          <td>{{ s.note }}</td>
+          <td class="text-end"><button class="btn btn-sm btn-outline-danger" (click)="remove(s.id)">âœ–</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card shadow-soft">
+    <div class="card-body">
+      <h5 class="card-title mb-2">Grafico temporale: reale vs obiettivo</h5>
+      <canvas #chartCanvas height="120"></canvas>
+      <p class="text-muted small mt-2">Punti verdi = saldo â‰¥ 0; rossi = saldo &lt; 0. Barre verdi/rosse: differenza (Î”) fra saldo reale e traiettoria verso l'obiettivo annuale.</p>
+    </div>
+  </div>
+</div>
+
+==== FILE: src\app\saldi\saldi.component.scss ====
+/* minimal */
+:host { display:block; }
+
+==== FILE: src\app\saldi\saldi.component.ts ====
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { FormBuilder, Validators } from '@angular/forms';
+import { Chart } from 'chart.js';
+import { StorageService } from '../services/storage.service';
+import { CcSnapshot, Year, YearData } from '../models';
+
+function uid(prefix: string) { return `${prefix}_${Math.random().toString(36).slice(2,9)}`; }
+
+@Component({ selector: 'app-saldi', templateUrl: './saldi.component.html', styleUrls: ['./saldi.component.scss'] })
+export class SaldiComponent implements OnInit {
+  currentYear: Year = new Date().getFullYear();
+  data: YearData | null = null;
+
+  form = this.fb.group({
+    date: [new Date().toISOString().slice(0,10), [Validators.required]],
+    saldo: [0, [Validators.required]],
+    note: ['']
+  });
+
+  @ViewChild('chartCanvas', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
+  private chart: Chart | null = null;
+
+  constructor(private fb: FormBuilder, private storage: StorageService) {}
+
+  ngOnInit(): void {
+    this.data = this.storage.getYearData(this.currentYear);
+    // safety: migrazione
+    if (!(this.data as any).ccSnapshots) (this.data as any).ccSnapshots = [];
+    this.sortSnapshots();
+    setTimeout(() => this.renderChart(), 0);
+  }
+
+  get snapshots(): CcSnapshot[] { return this.data?.ccSnapshots ?? []; }
+
+  add() {
+    if (!this.data) return;
+    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    const v = this.form.value as any;
+    const it: CcSnapshot = { id: uid('cc'), date: v.date, saldo: Number(v.saldo||0), note: v.note||'' };
+    this.data.ccSnapshots.push(it);
+    this.persist();
+    this.form.reset({ date: new Date().toISOString().slice(0,10), saldo: 0, note: '' });
+    this.sortSnapshots();
+    this.renderChart();
+  }
+
+  remove(id: string) {
+    if (!this.data) return;
+    this.data.ccSnapshots = this.data.ccSnapshots.filter(x => x.id !== id);
+    this.persist();
+    this.renderChart();
+  }
+
+  private sortSnapshots() {
+    if (!this.data) return;
+    this.data.ccSnapshots.sort((a,b)=>a.date.localeCompare(b.date));
+  }
+
+  private persist() { if (this.data) this.storage.upsertYear(this.data.config.year, this.data); }
+
+  // Chart rendering
+  private destroyChart() { if (this.chart) { this.chart.destroy(); this.chart = null; } }
+
+  private renderChart() {
+    if (!this.chartCanvas) return;
+    this.destroyChart();
+    const s = this.snapshots;
+    const labels = s.map(x => x.date.slice(8,10) + '/' + x.date.slice(5,7));
+
+    const cfg = this.data?.config;
+    const year = this.currentYear;
+    const start = new Date(year,0,1).getTime();
+    const end = new Date(year,11,31).getTime();
+    const daysYear = Math.round((end - start)/(1000*60*60*24)) + 1;
+    const m = ( (cfg?.saldoFinaleDesideratoCC||0) - (cfg?.saldoInizialeCC||0) ) / daysYear;
+
+    const actual = s.map(x => x.saldo);
+    const target = s.map(x => {
+      const t = new Date(x.date).getTime();
+      const d = Math.max(0, Math.round((t - start)/(1000*60*60*24)));
+      return (cfg?.saldoInizialeCC||0) + m * d;
+    });
+    const delta = actual.map((v,i)=> Math.round((v - target[i]) * 100) / 100);
+
+    const pointColors = actual.map(v => v >= 0 ? 'rgba(6,110,43,0.9)' : 'rgba(185,28,28,0.9)');
+    const barColors = delta.map(v => v >= 0 ? 'rgba(6,110,43,0.5)' : 'rgba(185,28,28,0.5)');
+
+    this.chart = new Chart(this.chartCanvas.nativeElement.getContext('2d')!, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { type: 'line', label: 'Saldo reale CC', data: actual, borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.15)', pointBackgroundColor: pointColors, lineTension: .2, yAxisID: 'y' },
+          { type: 'line', label: 'Traiettoria verso obiettivo', data: target, borderColor: '#6c757d', backgroundColor: 'rgba(108,117,125,.15)', borderDash: [6,6], pointRadius: 0, yAxisID: 'y' },
+          { type: 'bar', label: 'Î” vs obiettivo', data: delta, backgroundColor: barColors, yAxisID: 'y' }
+        ]
+      },
+      options: {
+        responsive: true,
+        tooltips: { callbacks: { label: (tt:any) => {
+          const i = tt.index; const d = delta[i]; const tgt = target[i];
+          return `${tt.datasetIndex===2?'Î” vs obiettivo':'Saldo'}: ${tt.yLabel} â‚¬` + (tt.datasetIndex!==2?`  (target: ${tgt.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})} â‚¬ â€” Î”: ${d.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})} â‚¬)`: '');
+        }}},
+        scales: {
+          yAxes: [{ id: 'y', ticks: { callback: (v:any)=> v+" â‚¬" } }],
+          xAxes: [{ gridLines: { display: false } }]
+        },
+        legend: { display: true }
+      } as any
+    });
+  }
+}
+
+==== FILE: src\app\services\budget.service.ts ====
+
+import { Injectable } from '@angular/core';
+import { ForecastMonth, ForecastResult, YearData } from '../models';
+
+@Injectable({ providedIn: 'root' })
+export class BudgetService {
+  computeForecast(data: YearData): ForecastResult {
+    const { config } = data; const months = Array.from({ length: 12 }, (_, i) => i + 1);
+    const fixedMonthlyIncome = sum(data.monthlyIncomes.map(x => x.importo));
+    const stipendioMensile = sum(data.monthlyIncomes.filter(x => x.type === 'stipendio').map(x => x.importo));
+    const fixedMonthlyExpenses = sum(data.monthlyExpenses.filter(e => e.active).map(x => x.importo));
+
+    const annualExpenseByMonth = aggregateByMonth(data.annualExpenses);
+    const oneOffIncomeByMonth = aggregateByMonth(data.oneOffIncomes);
+
+    const entrateTotali = fixedMonthlyIncome * 12 + sum(Object.values(oneOffIncomeByMonth).map(v => sum(v)));
+    const usciteTotali = fixedMonthlyExpenses * 12 + sum(Object.values(annualExpenseByMonth).map(v => sum(v)));
+
+    const Ttot = config.saldoInizialeCC + entrateTotali - usciteTotali - config.saldoFinaleDesideratoCC;
+
+    const marginiGrezzi: number[] = []; const entratePerMese: number[] = []; const uscitePerMese: number[] = []; const stipendioPerMese: number[] = [];
+    let saldoAttuale = config.saldoInizialeCC;
+    for (const m of months) {
+      const entrateMese = fixedMonthlyIncome + sum(oneOffIncomeByMonth[m] || []);
+      const stipendioMese = stipendioMensile;
+      const usciteMese = fixedMonthlyExpenses + sum(annualExpenseByMonth[m] || []);
+      const margine = saldoAttuale + entrateMese - usciteMese;
+      marginiGrezzi.push(margine); entratePerMese.push(entrateMese); uscitePerMese.push(usciteMese); stipendioPerMese.push(stipendioMese);
+      saldoAttuale = margine;
+    }
+
+    let bonifici = new Array(12).fill(0); let messaggio: string | undefined; let fattibile = true;
+
+    if (Ttot <= 0) {
+      messaggio = Ttot < 0
+        ? `Attenzione: per raggiungere il saldo finale desiderato mancano ${fmt(-Ttot)} â‚¬. I bonifici sono stati azzerati.`
+        : `Nessun importo trasferibile verso la carta prepagata per raggiungere il saldo finale desiderato.`;
+      bonifici = new Array(12).fill(0); fattibile = Ttot === 0;
+    } else {
+      const positiveIndices = marginiGrezzi.map((mg, idx) => ({ mg, idx })).filter(x => x.mg > 0).map(x => x.idx);
+      const sumPositiveMargins = sum(positiveIndices.map(i => marginiGrezzi[i]));
+      if (sumPositiveMargins <= 0) { messaggio = `Impossibile distribuire ${fmt(Ttot)} â‚¬ perchÃ© nessun mese ha margine positivo.`; fattibile = false; }
+      else {
+        let remaining = Math.min(Ttot, sumPositiveMargins);
+        let active = new Set(positiveIndices);
+        const caps = marginiGrezzi.slice();
+        while (remaining > 1e-6 && active.size > 0) {
+          const quota = remaining / active.size; let allocatedThisRound = 0;
+          for (const i of Array.from(active)) {
+            const cap = caps[i] - bonifici[i]; const alloc = Math.min(quota, cap);
+            if (alloc > 0) { bonifici[i] += alloc; allocatedThisRound += alloc; }
+            if (Math.abs(caps[i] - bonifici[i]) <= 1e-9) active.delete(i);
+          }
+          if (allocatedThisRound <= 1e-9) break; remaining -= allocatedThisRound;
+        }
+        if (Ttot > sumPositiveMargins) { messaggio = `Nota: massimo trasferibile ${fmt(sumPositiveMargins)} â‚¬ (< ${fmt(Ttot)} â‚¬); saldo finale previsto > desiderato.`; fattibile = false; }
+      }
+    }
+
+    const out: ForecastMonth[] = []; let saldoChain = config.saldoInizialeCC;
+    for (let i = 0; i < 12; i++) {
+      const mese = i + 1; const entrate = entratePerMese[i]; const uscite = uscitePerMese[i]; const stipendio = stipendioPerMese[i];
+      const bilancio = entrate - uscite; const saldoAttualeMese = saldoChain; const marginePrimaBonifico = saldoAttualeMese + bilancio;
+      const bonifico = Math.min(bonifici[i], Math.max(0, marginePrimaBonifico)); const saldoFinale = marginePrimaBonifico - bonifico;
+      out.push({ mese, saldoAttuale: round2(saldoAttualeMese), entrate: round2(entrate), stipendio: round2(stipendio), uscite: round2(uscite), bilancio: round2(bilancio), bonificoPrepagata: round2(bonifico), saldoFinale: round2(saldoFinale) });
+      saldoChain = saldoFinale;
+    }
+
+    return { months: out, trasferibileTotale: round2(sum(out.map(x => x.bonificoPrepagata))), fattibile, messaggio, saldoFinaleAnnoPrevisto: round2(out[out.length - 1]?.saldoFinale || config.saldoInizialeCC) };
+  }
+}
+
+function aggregateByMonth(items: Array<{ mese: number; importo: number }>): Record<number, number[]> {
+  return items.reduce((acc: Record<number, number[]>, x) => { (acc[x.mese] = acc[x.mese] || []).push(x.importo); return acc; }, {});
+}
+function sum(arr: number[]): number { return arr.reduce((a, b) => a + b, 0); }
+function round2(n: number): number { return Math.round(n * 100) / 100; }
+function fmt(n: number): string { return n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+==== FILE: src\app\services\local-storage.service.ts ====
+import { Injectable } from '@angular/core';
+
+@Injectable({ providedIn: 'root' })
+export class LocalStorageService {
+  private hasLocalStorage = typeof window !== 'undefined' && !!window.localStorage;
+
+  getItem<T>(key: string, fallback: T): T {
+    if (!this.hasLocalStorage) return fallback;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as T) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  setItem<T>(key: string, value: T): void {
+    if (!this.hasLocalStorage) return;
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  remove(key: string): void {
+    if (!this.hasLocalStorage) return;
+    localStorage.removeItem(key);
+  }
+}
+
+==== FILE: src\app\services\storage.service.ts ====
+import { Injectable } from '@angular/core';
+import { AppState, Year, YearData } from '../models';
+
+const STORAGE_KEY = 'conti-forecast-state';
+const CURRENT_VERSION = 2; // bumped for ccSnapshots
+
+@Injectable({ providedIn: 'root' })
+export class StorageService {
+  load(): AppState {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return this.initialState();
+    try { return this.migrate(JSON.parse(raw) as AppState); } catch { return this.initialState(); }
+  }
+  save(state: AppState) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+  private initialState(): AppState {
+    const year = new Date().getFullYear();
+    return {
+      version: CURRENT_VERSION,
+      years: [year],
+      dataByYear: {
+        [year]: {
+          config: { year, saldoInizialeCC: 0, saldoFinaleDesideratoCC: 0 },
+          monthlyExpenses: [],
+          annualExpenses: [],
+          monthlyIncomes: [],
+          oneOffIncomes: [],
+          prepaidSnapshots: [],
+          ccSnapshots: []
+        }
+      }
+    };
+  }
+
+  private migrate(state: AppState): AppState {
+    if (!state.version || state.version < 1) state.version = 1;
+    // ensure data structure for every year
+    for (const y of state.years) {
+      const cur = state.dataByYear[y] as any;
+      if (!cur.prepaidSnapshots) cur.prepaidSnapshots = [];
+      if (!cur.ccSnapshots) cur.ccSnapshots = [];
+      if (!cur.config) cur.config = { year: y, saldoInizialeCC: 0, saldoFinaleDesideratoCC: 0 };
+    }
+    state.version = CURRENT_VERSION;
+    return state;
+  }
+
+  upsertYear(year: Year, data?: Partial<YearData>) {
+    const s = this.load();
+    if (!s.years.includes(year)) s.years.push(year);
+    const current: YearData = s.dataByYear[year] ?? {
+      config: { year, saldoInizialeCC: 0, saldoFinaleDesideratoCC: 0 },
+      monthlyExpenses: [],
+      annualExpenses: [],
+      monthlyIncomes: [],
+      oneOffIncomes: [],
+      prepaidSnapshots: [],
+      ccSnapshots: []
+    } as YearData;
+    s.dataByYear[year] = {
+      ...current,
+      ...data,
+      config: { ...current.config, ...(data?.config ?? {}) },
+      ccSnapshots: data?.ccSnapshots ?? current.ccSnapshots
+    } as YearData;
+    this.save(s);
+  }
+
+  getYearData(year: Year): YearData { return this.load().dataByYear[year]; }
+}
+
+==== FILE: src\app\spese\spese.component.html ====
+
+<div class="container">
+  <h2 class="mb-3">Spese</h2>
+
+  <form class="row g-2 align-items-end" (ngSubmit)="aggiungi()">
+    <div class="col-md-4">
+      <label class="form-label">Descrizione</label>
+      <input class="form-control" [(ngModel)]="nuova.descrizione" name="descrizione" required />
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Importo (â‚¬)</label>
+      <input type="number" class="form-control" [(ngModel)]="nuova.importo" name="importo" required step="0.01" />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Data</label>
+      <input type="date" class="form-control" [(ngModel)]="nuova.data" name="data" />
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Tipo</label>
+      <select class="form-select" [(ngModel)]="nuova.frequenza" name="frequenza">
+        <option value="mensile">Mensile</option>
+        <option value="annuale">Annuale</option>
+      </select>
+    </div>
+    <div class="col-md-1 d-grid">
+      <button class="btn btn-primary" type="submit">Aggiungi</button>
+    </div>
+  </form>
+
+  <hr />
+
+  <div class="row g-3 mb-2">
+    <div class="col-md-4">
+      <div class="alert alert-secondary mb-0">
+        <strong>Totale Spese</strong>: {{ totale | number:'1.2-2' }}â‚¬
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="alert alert-warning mb-0">
+        <strong>Spese Mensili</strong>: {{ totaleMensili | number:'1.2-2' }}â‚¬
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="alert alert-info mb-0">
+        <strong>Spese Annuali</strong>: {{ totaleAnnuali | number:'1.2-2' }}â‚¬
+      </div>
+    </div>
+  </div>
+
+  <!-- TABELLA: MENSILI -->
+  <h5 class="mt-3">Spese Mensili</h5>
+  <table class="table table-sm table-striped mt-2">
+    <thead>
+      <tr>
+        <th (click)="sortMens('data')" role="button" title="Ordina per Data">
+          Data
+          <span *ngIf="sortKeyMens === 'data'">{{ sortDirMens === 1 ? 'â–²' : 'â–¼' }}</span>
+        </th>
+        <th (click)="sortMens('descrizione')" role="button" title="Ordina per Descrizione">
+          Descrizione
+          <span *ngIf="sortKeyMens === 'descrizione'">{{ sortDirMens === 1 ? 'â–²' : 'â–¼' }}</span>
+        </th>
+        <th>Tipo</th>
+        <th class="text-end" style="width:30%" (click)="sortMens('importo')" role="button" title="Ordina per Importo">
+          Importo
+          <span *ngIf="sortKeyMens === 'importo'">{{ sortDirMens === 1 ? 'â–²' : 'â–¼' }}</span>
+        </th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let s of speseMensiliSorted">
+        <td>{{ s.data }}</td>
+        <td>{{ s.descrizione }}</td>
+        <td class="text-capitalize">{{ s.frequenza }}</td>
+        <td class="text-end" style="width:30%">
+          <input
+            type="number"
+            class="form-control form-control-sm text-end"
+            [(ngModel)]="s.importo"
+            [ngModelOptions]="{ updateOn: 'blur' }"
+            (blur)="onImportoBlur(spese.indexOf(s))"
+            name="importoMens{{ spese.indexOf(s) }}"
+            step="0.01"
+            style="width: 45%; margin-left: auto; display: block;"
+          />
+        </td>
+        <td class="text-end">
+          <button class="btn btn-link text-danger btn-sm" (click)="rimuovi(spese.indexOf(s))">âœ•</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- TABELLA: ANNUALI -->
+  <h5 class="mt-4">Spese Annuali</h5>
+  <table class="table table-sm table-striped mt-2">
+    <thead>
+      <tr>
+        <th (click)="sortAnn('data')" role="button" title="Ordina per Data">
+          Data
+          <span *ngIf="sortKeyAnn === 'data'">{{ sortDirAnn === 1 ? 'â–²' : 'â–¼' }}</span>
+        </th>
+        <th (click)="sortAnn('descrizione')" role="button" title="Ordina per Descrizione">
+          Descrizione
+          <span *ngIf="sortKeyAnn === 'descrizione'">{{ sortDirAnn === 1 ? 'â–²' : 'â–¼' }}</span>
+        </th>
+        <th>Tipo</th>
+        <th class="text-end" style="width:30%" (click)="sortAnn('importo')" role="button" title="Ordina per Importo">
+          Importo
+          <span *ngIf="sortKeyAnn === 'importo'">{{ sortDirAnn === 1 ? 'â–²' : 'â–¼' }}</span>
+        </th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let s of speseAnnualiSorted">
+        <td>{{ s.data }}</td>
+        <td>{{ s.descrizione }}</td>
+        <td class="text-capitalize">{{ s.frequenza }}</td>
+        <td class="text-end" style="width:30%">
+          <input
+            type="number"
+            class="form-control form-control-sm text-end"
+            [(ngModel)]="s.importo"
+            [ngModelOptions]="{ updateOn: 'blur' }"
+            (blur)="onImportoBlur(spese.indexOf(s))"
+            name="importoAnn{{ spese.indexOf(s) }}"
+            step="0.01"
+            style="width: 45%; margin-left: auto; display: block;"
+          />
+        </td>
+        <td class="text-end">
+          <button class="btn btn-link text-danger btn-sm" (click)="rimuovi(spese.indexOf(s))">âœ•</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+==== FILE: src\app\spese\spese.component.scss ====
+
+==== FILE: src\app\spese\spese.component.ts ====
+
+import { Component } from '@angular/core';
+import { LocalStorageService } from '../services/local-storage.service';
+
+export interface Movimento {
+  descrizione: string;
+  importo: number; // spesa
+  data: string;    // ISO yyyy-MM-dd
+  frequenza: 'mensile' | 'annuale';
+}
+
+@Component({
+  selector: 'app-spese',
+  templateUrl: './spese.component.html',
+  styleUrls: ['./spese.component.scss']
+})
+export class SpeseComponent {
+  readonly STORAGE_KEY = 'spese';
+  nuova: Movimento = { descrizione: '', importo: 0, data: new Date().toISOString().slice(0,10), frequenza: 'mensile' };
+  spese: Movimento[] = [];
+
+  // Stato ordinamento (indipendente per tabella Mensili/Annuali)
+  sortKeyMens: 'data' | 'descrizione' | 'importo' = 'data';
+  sortDirMens: 1 | -1 = 1;
+  sortKeyAnn: 'data' | 'descrizione' | 'importo' = 'data';
+  sortDirAnn: 1 | -1 = 1;
+
+  constructor(private ls: LocalStorageService) {
+    // Migrazione retro-compatibile: se mancano 'frequenza', default 'mensile'
+    const loaded = this.ls.getItem<Partial<Movimento>[]>(this.STORAGE_KEY, []);
+    this.spese = loaded.map(s => ({
+      descrizione: String(s.descrizione || ''),
+      importo: Number((s as any).importo || 0),
+      data: s.data ? String(s.data) : new Date().toISOString().slice(0,10),
+      frequenza: (s as any).frequenza === 'annuale' ? 'annuale' : 'mensile'
+    }));
+  }
+
+  aggiungi() {
+    if (!this.nuova.descrizione || !this.nuova.importo) return;
+    this.spese = [ { ...this.nuova }, ...this.spese ];
+    this.ls.setItem(this.STORAGE_KEY, this.spese);
+    this.nuova = { descrizione: '', importo: 0, data: new Date().toISOString().slice(0,10), frequenza: 'mensile' };
+  }
+
+  rimuovi(i: number) {
+    this.spese.splice(i, 1);
+    this.spese = [...this.spese];
+    this.ls.setItem(this.STORAGE_KEY, this.spese);
+  }
+
+  // Persistenza su blur dell'importo
+  onImportoBlur(i: number) {
+    this.spese[i].importo = Number(this.spese[i].importo || 0);
+    this.spese = [...this.spese];
+    this.ls.setItem(this.STORAGE_KEY, this.spese);
+  }
+
+  // Getter totali
+  get totaleMensili(): number {
+    return this.spese.filter(s => s.frequenza === 'mensile').reduce((a, b) => a + Number(b.importo || 0), 0);
+  }
+
+  get totaleAnnuali(): number {
+    return this.spese.filter(s => s.frequenza === 'annuale').reduce((a, b) => a + Number(b.importo || 0), 0);
+  }
+
+  // NUOVA LOGICA: totale = mensili + (annuali / 13)
+  get totale(): number {
+    return this.totaleMensili + (this.totaleAnnuali / 13);
+  }
+
+  // Getter liste ordinate
+  get speseMensiliSorted(): Movimento[] {
+    const list = this.spese.filter(s => s.frequenza === 'mensile').slice();
+    return list.sort((a, b) => this.compare(a, b, this.sortKeyMens) * this.sortDirMens);
+  }
+
+  get speseAnnualiSorted(): Movimento[] {
+    const list = this.spese.filter(s => s.frequenza === 'annuale').slice();
+    return list.sort((a, b) => this.compare(a, b, this.sortKeyAnn) * this.sortDirAnn);
+  }
+
+  // Toggle ordinamento
+  sortMens(key: 'data' | 'descrizione' | 'importo') {
+    if (this.sortKeyMens === key) {
+      this.sortDirMens = (this.sortDirMens === 1 ? -1 : 1);
+    } else {
+      this.sortKeyMens = key;
+      this.sortDirMens = 1;
+    }
+  }
+
+  sortAnn(key: 'data' | 'descrizione' | 'importo') {
+    if (this.sortKeyAnn === key) {
+      this.sortDirAnn = (this.sortDirAnn === 1 ? -1 : 1);
+    } else {
+      this.sortKeyAnn = key;
+      this.sortDirAnn = 1;
+    }
+  }
+
+  // Comparatore
+  private compare(a: Movimento, b: Movimento, key: 'data' | 'descrizione' | 'importo'): number {
+    if (key === 'importo') {
+      return Number(a.importo || 0) - Number(b.importo || 0);
+    }
+    if (key === 'data') {
+      // confronto lessicografico su yyyy-MM-dd Ã¨ giÃ  ordine cronologico
+      return String(a.data || '').localeCompare(String(b.data || ''));
+    }
+    // descrizione
+    return String(a.descrizione || '').localeCompare(String(b.descrizione || ''), 'it', { sensitivity: 'base' });
+  }
+}
+
+==== FILE: src\app\app-routing.module.ts ====
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { SpeseComponent } from './spese/spese.component';
+import { EntrateComponent } from './entrate/entrate.component';
+import { DashboardComponent } from './dashboard/dashboard.component';
+import { SaldiComponent } from './saldi/saldi.component';
+
+const routes: Routes = [
+  { path: '', redirectTo: 'grafici', pathMatch: 'full' },
+  { path: 'dashboard', component: DashboardComponent },
+  { path: 'spese', component: SpeseComponent },
+  { path: 'entrate', component: EntrateComponent },
+  { path: 'saldi', component: SaldiComponent },
+  { path: 'grafici', loadChildren: () => import('./grafici/grafici.module').then(m => m.GraficiModule) },
+  { path: '**', redirectTo: 'spese' }
+];
+
+@NgModule({ imports: [RouterModule.forRoot(routes, { useHash: true })], exports: [RouterModule] })
+export class AppRoutingModule {}
+
+==== FILE: src\app\app.component.html ====
+<nav class="navbar navbar-expand navbar-light bg-light mb-3">
+  <a class="navbar-brand" routerLink="/">Saldo</a>
+  <ul class="navbar-nav">
+    <li class="nav-item">
+      <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" routerLink="/spese" routerLinkActive="active">Spese</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" routerLink="/entrate" routerLinkActive="active">Entrate</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" routerLink="/grafici" routerLinkActive="active">Grafici Spese</a>
+    </li>
+  </ul>
+</nav>
+<router-outlet></router-outlet>
+==== FILE: src\app\app.component.scss ====
+.actions { display:flex; align-items: flex-end; gap:.5rem; }
+
+==== FILE: src\app\app.component.ts ====
+
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { FormBuilder, Validators } from '@angular/forms';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+
+import * as XLSX from 'xlsx';
+
+import { AnnualExpense, MonthlyExpense, MonthlyIncome, OneOffIncome, PrepaidSnapshot, Year, YearData } from './models';
+import { StorageService } from './services/storage.service';
+import { BudgetService } from './services/budget.service';
+import { Chart } from 'chart.js';
+
+function uid(prefix: string) { return `${prefix}_${Math.random().toString(36).slice(2, 9)}`; }
+
+@Component({ selector: 'app-root', templateUrl: './app.component.html', styleUrls: ['./app.component.scss'] })
+export class AppComponent implements OnInit {
+  title = 'Conti â€¢ Previsionale CC + Carta Prepagata';
+
+  years: Year[] = [];
+  currentYear: Year = new Date().getFullYear();
+  data: YearData | null = null;
+
+  showOnlyNegative = false;
+
+  configForm = this.fb.group({ saldoInizialeCC: [0, [Validators.required, Validators.min(0)]], saldoFinaleDesideratoCC: [0, [Validators.required, Validators.min(0)]] });
+  monthlyExpenseForm = this.fb.group({ descrizione: ['', [Validators.required]], importo: [0, [Validators.required, Validators.min(0.01)]] });
+  annualExpenseForm = this.fb.group({ descrizione: ['', [Validators.required]], importo: [0, [Validators.required, Validators.min(0.01)]], mese: [1, [Validators.required, Validators.min(1), Validators.max(12)]] });
+  monthlyIncomeForm = this.fb.group({ descrizione: ['', [Validators.required]], importo: [0, [Validators.required, Validators.min(0.01)]], type: ['stipendio', Validators.required] });
+  oneOffIncomeForm = this.fb.group({ descrizione: ['', [Validators.required]], importo: [0, [Validators.required, Validators.min(0.01)]], mese: [1, [Validators.required, Validators.min(1), Validators.max(12)]], type: ['altro', Validators.required] });
+  prepaidForm = this.fb.group({ saldo: [0, [Validators.required, Validators.min(0)]], note: [''] });
+
+  forecast: ReturnType<BudgetService['computeForecast']> | null = null;
+
+  @ViewChild('chartCanvas', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
+  private chart: Chart | null = null;
+
+  constructor(private fb: FormBuilder, private storage: StorageService, private budget: BudgetService) {}
+
+  ngOnInit() {
+    const st = this.storage.load(); this.years = st.years.sort(); if (!this.years.includes(this.currentYear)) this.currentYear = this.years[0]; this.loadYear(this.currentYear);
+    if (this.data) this.patchConfig();
+    this.configForm.valueChanges.pipe(debounceTime(300), distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))).subscribe(val => {
+      if (!this.data) return; this.data.config.saldoInizialeCC = Number(val.saldoInizialeCC || 0); this.data.config.saldoFinaleDesideratoCC = Number(val.saldoFinaleDesideratoCC || 0); this.persist();
+    });
+  }
+
+  get fCfg() { return this.configForm.controls; }
+  ctrlInvalid(ctrl: any) { return ctrl.invalid && (ctrl.dirty || ctrl.touched); }
+
+  private patchConfig() { if (!this.data) return; this.configForm.patchValue({ saldoInizialeCC: this.data.config.saldoInizialeCC, saldoFinaleDesideratoCC: this.data.config.saldoFinaleDesideratoCC }, { emitEvent: false }); }
+
+  loadYear(y: Year) { this.currentYear = y; const d = this.storage.getYearData(y); this.data = JSON.parse(JSON.stringify(d)); this.forecast = null; this.patchConfig(); this.destroyChart(); }
+  addYear() { const now = new Date().getFullYear(); const y = (this.years[this.years.length - 1] || now) + 1; this.storage.upsertYear(y); this.years = [...this.years, y].sort(); this.loadYear(y); }
+
+  addMonthlyExpense() { if (!this.data) return; if (this.monthlyExpenseForm.invalid) { this.monthlyExpenseForm.markAllAsTouched(); return; } const v = this.monthlyExpenseForm.value; const it: MonthlyExpense = { id: uid('mexp'), descrizione: v.descrizione!, importo: Number(v.importo), active: true }; this.data.monthlyExpenses.push(it); this.monthlyExpenseForm.reset({ descrizione: '', importo: 0 }); this.persist(); }
+  toggleMonthlyExpense(id: string) { if (!this.data) return; const it = this.data.monthlyExpenses.find(x => x.id === id); if (it) { it.active = !it.active; this.persist(); } }
+  removeMonthlyExpense(id: string) { if (!this.data) return; this.data.monthlyExpenses = this.data.monthlyExpenses.filter(x => x.id !== id); this.persist(); }
+
+  addAnnualExpense() { if (!this.data) return; if (this.annualExpenseForm.invalid) { this.annualExpenseForm.markAllAsTouched(); return; } const v = this.annualExpenseForm.value; const it: AnnualExpense = { id: uid('aexp'), descrizione: v.descrizione!, importo: Number(v.importo), mese: Number(v.mese) }; this.data.annualExpenses.push(it); this.annualExpenseForm.reset({ descrizione: '', importo: 0, mese: 1 }); this.persist(); }
+  removeAnnualExpense(id: string) { if (!this.data) return; this.data.annualExpenses = this.data.annualExpenses.filter(x => x.id !== id); this.persist(); }
+
+  addMonthlyIncome() { if (!this.data) return; if (this.monthlyIncomeForm.invalid) { this.monthlyIncomeForm.markAllAsTouched(); return; } const v = this.monthlyIncomeForm.value as any; const it: MonthlyIncome = { id: uid('minc'), descrizione: v.descrizione, importo: Number(v.importo), type: v.type }; this.data.monthlyIncomes.push(it); this.monthlyIncomeForm.reset({ descrizione: '', importo: 0, type: 'stipendio' }); this.persist(); }
+  removeMonthlyIncome(id: string) { if (!this.data) return; this.data.monthlyIncomes = this.data.monthlyIncomes.filter(x => x.id !== id); this.persist(); }
+
+  addOneOffIncome() { if (!this.data) return; if (this.oneOffIncomeForm.invalid) { this.oneOffIncomeForm.markAllAsTouched(); return; } const v = this.oneOffIncomeForm.value as any; const it: OneOffIncome = { id: uid('oinc'), descrizione: v.descrizione, importo: Number(v.importo), mese: Number(v.mese), type: v.type }; this.data.oneOffIncomes.push(it); this.oneOffIncomeForm.reset({ descrizione: '', importo: 0, mese: 1, type: 'altro' }); this.persist(); }
+  removeOneOffIncome(id: string) { if (!this.data) return; this.data.oneOffIncomes = this.data.oneOffIncomes.filter(x => x.id !== id); this.persist(); }
+
+  addPrepaidSnapshot() { if (!this.data) return; if (this.prepaidForm.invalid) { this.prepaidForm.markAllAsTouched(); return; } const v = this.prepaidForm.value as any; const it: PrepaidSnapshot = { id: uid('pp'), date: new Date().toISOString(), saldo: Number(v.saldo || 0), note: v.note || '' }; this.data.prepaidSnapshots.push(it); this.prepaidForm.reset({ saldo: 0, note: '' }); this.persist(); }
+  lastPrepaidBalance() { if (!this.data || this.data.prepaidSnapshots.length === 0) return null; const s = this.data.prepaidSnapshots.slice().sort((a, b) => a.date.localeCompare(b.date)); return s[s.length - 1]; }
+
+  compute() { if (!this.data) return; this.forecast = this.budget.computeForecast(this.data); this.renderChart(); }
+  private persist() { if (!this.data) return; this.storage.upsertYear(this.data.config.year, this.data); }
+
+  exportCSV() {
+    if (!this.forecast) this.compute();
+    if (!this.forecast) return;
+    const header = ['Mese','SaldoAttuale','Entrate','Stipendio','Uscite','Bilancio','BonificoPrepagata','SaldoFinale'];
+    const rows = this.filteredMonths().map(m => [
+      m.mese, m.saldoAttuale, m.entrate, m.stipendio, m.uscite, m.bilancio, m.bonificoPrepagata, m.saldoFinale
+    ].map(v => String(v)));
+    const csv = [header, ...rows].map(r => r.join(';')).join('');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `previsionale_${this.currentYear}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  exportExcel() {
+    if (!this.forecast) this.compute();
+    if (!this.forecast) return;
+    const data = this.filteredMonths().map(m=>({
+      Mese: m.mese, SaldoAttuale: m.saldoAttuale, Entrate: m.entrate, Stipendio: m.stipendio,
+      Uscite: m.uscite, Bilancio: m.bilancio, BonificoPrepagata: m.bonificoPrepagata, SaldoFinale: m.saldoFinale
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Previsionale');
+    XLSX.writeFile(wb, `previsionale_${this.currentYear}.xlsx`);
+  }
+
+  private destroyChart() { if (this.chart) { this.chart.destroy(); this.chart = null; } }
+  private renderChart() {
+    if (!this.forecast || !this.chartCanvas) return;
+    this.destroyChart();
+    const months = this.filteredMonths();
+    const labels = months.map(m=>m.mese);
+    const saldo = months.map(m=>m.saldoFinale);
+    const entrate = months.map(m=>m.entrate);
+    const uscite = months.map(m=>m.uscite);
+
+    this.chart = new Chart(this.chartCanvas.nativeElement.getContext('2d')!, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { type: 'line', label: 'Saldo finale CC', data: saldo, borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.15)', yAxisID: 'y', lineTension: .2 },
+          { type: 'bar', label: 'Entrate', data: entrate, backgroundColor: 'rgba(25,135,84,.6)', yAxisID: 'y1' },
+          { type: 'bar', label: 'Uscite', data: uscite, backgroundColor: 'rgba(220,53,69,.6)', yAxisID: 'y1' }
+        ]
+      }
+    });
+  }
+
+  toggleOnlyNegative() { this.showOnlyNegative = !this.showOnlyNegative; this.renderChart(); }
+  filteredMonths() { return this.forecast ? (this.showOnlyNegative ? this.forecast.months.filter(m=>m.saldoFinale<0) : this.forecast.months) : []; }
+}
+
+==== FILE: src\app\app.module.ts ====
+// app.module.ts
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { AppRoutingModule } from './app-routing.module';
+import { AppComponent } from './app.component';
+import { SpeseComponent } from './spese/spese.component';
+import { EntrateComponent } from './entrate/entrate.component';
+import { DashboardComponent } from './dashboard/dashboard.component';
+import { SaldiComponent } from './saldi/saldi.component';
+
+@NgModule({
+  declarations: [ AppComponent, SpeseComponent, EntrateComponent, DashboardComponent, SaldiComponent ],
+  imports: [ BrowserModule, FormsModule, ReactiveFormsModule, AppRoutingModule ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+
+==== FILE: src\app\models.ts ====
+export type Year = number;
+
+export interface YearConfig {
+  year: Year;
+  saldoInizialeCC: number;
+  saldoFinaleDesideratoCC: number;
+}
+
+export interface MonthlyExpense { id: string; descrizione: string; importo: number; active: boolean; }
+export interface AnnualExpense { id: string; descrizione: string; importo: number; mese: number; }
+
+export type IncomeType = 'stipendio' | 'altro';
+export interface MonthlyIncome { id: string; descrizione: string; importo: number; type: IncomeType; }
+export interface OneOffIncome { id: string; descrizione: string; importo: number; mese: number; type?: IncomeType; }
+
+export interface PrepaidSnapshot { id: string; date: string; saldo: number; note?: string; }
+
+// NEW â–¶ï¸Ž snapshot del Conto Corrente (storico saldi reali)
+export interface CcSnapshot { id: string; date: string; saldo: number; note?: string; }
+
+export interface YearData {
+  config: YearConfig;
+  monthlyExpenses: MonthlyExpense[];
+  annualExpenses: AnnualExpense[];
+  monthlyIncomes: MonthlyIncome[];
+  oneOffIncomes: OneOffIncome[];
+  prepaidSnapshots: PrepaidSnapshot[];
+  // NEW â–¶ï¸Ž storicizzazione saldi CC
+  ccSnapshots: CcSnapshot[];
+}
+
+export interface AppState {
+  version: number;
+  years: Year[];
+  dataByYear: Record<Year, YearData>;
+}
+
+export interface ForecastMonth {
+  mese: number; saldoAttuale: number; entrate: number; stipendio: number; uscite: number; bilancio: number; bonificoPrepagata: number; saldoFinale: number;
+}
+export interface ForecastResult {
+  months: ForecastMonth[];
+  trasferibileTotale: number;
+  fattibile: boolean;
+  messaggio?: string;
+  saldoFinaleAnnoPrevisto: number;
+}
+
+==== FILE: src\environments\environment.prod.ts ====
+export const environment = { production: true };
+
+==== FILE: src\environments\environment.ts ====
+export const environment = { production: false };
+
+==== FILE: src\index.html ====
+
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>Conti â€¢ Previsionale CC + Carta (Angular 9 + Bootstrap)</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>
+
+==== FILE: src\main.ts ====
+
+import { enableProdMode, LOCALE_ID } from '@angular/core';
+import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+import { registerLocaleData } from '@angular/common';
+import localeIt from '@angular/common/locales/it';
+
+import { AppModule } from './app/app.module';
+import { environment } from './environments/environment';
+
+registerLocaleData(localeIt);
+
+if (environment.production) {
+  enableProdMode();
+}
+
+platformBrowserDynamic([{ provide: LOCALE_ID, useValue: 'it-IT' }])
+  .bootstrapModule(AppModule)
+  .catch(err => console.error(err));
+
+==== FILE: src\polyfills.ts ====
+import 'zone.js/dist/zone';
+
+==== FILE: src\styles.scss ====
+
+:root{ --muted:#6b7280; --pos:#066e2b; --neg:#b91c1c; }
+.container-narrow { max-width: 1180px; }
+.badge-pos{ color: var(--pos); font-weight:600; }
+.badge-neg{ color: var(--neg); font-weight:600; }
+.table td, .table th{ white-space: nowrap; }
+.actions { display:flex; align-items: flex-end; gap:.5rem; }
+.table-sticky thead th { position: sticky; top: 0; z-index: 2; background: var(--bs-body-bg); }
+

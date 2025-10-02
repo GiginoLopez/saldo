@@ -2,12 +2,13 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
-import Chart from 'chart.js/auto';
+
 import * as XLSX from 'xlsx';
 
 import { AnnualExpense, MonthlyExpense, MonthlyIncome, OneOffIncome, PrepaidSnapshot, Year, YearData } from './models';
 import { StorageService } from './services/storage.service';
 import { BudgetService } from './services/budget.service';
+import { Chart } from 'chart.js';
 
 function uid(prefix: string) { return `${prefix}_${Math.random().toString(36).slice(2, 9)}`; }
 
@@ -114,18 +115,10 @@ export class AppComponent implements OnInit {
       data: {
         labels,
         datasets: [
-          { type: 'line', label: 'Saldo finale CC', data: saldo, borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.15)', yAxisID: 'y', tension: .2 },
+          { type: 'line', label: 'Saldo finale CC', data: saldo, borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.15)', yAxisID: 'y', lineTension: .2 },
           { type: 'bar', label: 'Entrate', data: entrate, backgroundColor: 'rgba(25,135,84,.6)', yAxisID: 'y1' },
           { type: 'bar', label: 'Uscite', data: uscite, backgroundColor: 'rgba(220,53,69,.6)', yAxisID: 'y1' }
         ]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } },
-        scales: {
-          y: { position: 'left', title: { display: true, text: 'Saldo' } },
-          y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Entrate/Uscite' } }
-        }
       }
     });
   }

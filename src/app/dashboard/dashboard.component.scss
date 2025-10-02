@@ -2,7 +2,7 @@
 /* --- FIX grafico: rendi visibili le barre e allinea al fondo --- */
 .bars {  /* contenitore colonne */
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
+  grid-template-columns: repeat(13, 1fr);
   align-items: end;            /* allinea le colonne al fondo */
   gap: 10px;
   height: 240px;              /* altezza fissa per calcolo % */

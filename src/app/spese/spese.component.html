@@ -1,3 +1,4 @@
+
 <div class="container">
   <h2 class="mb-3">Spese</h2>
 
@@ -46,24 +47,91 @@
     </div>
   </div>
 
+  <!-- TABELLA: MENSILI -->
+  <h5 class="mt-3">Spese Mensili</h5>
   <table class="table table-sm table-striped mt-2">
     <thead>
       <tr>
-        <th>Data</th>
-        <th>Descrizione</th>
+        <th (click)="sortMens('data')" role="button" title="Ordina per Data">
+          Data
+          <span *ngIf="sortKeyMens === 'data'">{{ sortDirMens === 1 ? '▲' : '▼' }}</span>
+        </th>
+        <th (click)="sortMens('descrizione')" role="button" title="Ordina per Descrizione">
+          Descrizione
+          <span *ngIf="sortKeyMens === 'descrizione'">{{ sortDirMens === 1 ? '▲' : '▼' }}</span>
+        </th>
         <th>Tipo</th>
-        <th class="text-end">Importo</th>
+        <th class="text-end" style="width:30%" (click)="sortMens('importo')" role="button" title="Ordina per Importo">
+          Importo
+          <span *ngIf="sortKeyMens === 'importo'">{{ sortDirMens === 1 ? '▲' : '▼' }}</span>
+        </th>
         <th></th>
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let s of spese; let i = index">
+      <tr *ngFor="let s of speseMensiliSorted">
         <td>{{ s.data }}</td>
         <td>{{ s.descrizione }}</td>
         <td class="text-capitalize">{{ s.frequenza }}</td>
-        <td class="text-end">{{ s.importo | number:'1.2-2' }}€</td>
+        <td class="text-end" style="width:30%">
+          <input
+            type="number"
+            class="form-control form-control-sm text-end"
+            [(ngModel)]="s.importo"
+            [ngModelOptions]="{ updateOn: 'blur' }"
+            (blur)="onImportoBlur(spese.indexOf(s))"
+            name="importoMens{{ spese.indexOf(s) }}"
+            step="0.01"
+            style="width: 45%; margin-left: auto; display: block;"
+          />
+        </td>
         <td class="text-end">
-          <button class="btn btn-link text-danger btn-sm" (click)="rimuovi(i)">✕</button>
+          <button class="btn btn-link text-danger btn-sm" (click)="rimuovi(spese.indexOf(s))">✕</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- TABELLA: ANNUALI -->
+  <h5 class="mt-4">Spese Annuali</h5>
+  <table class="table table-sm table-striped mt-2">
+    <thead>
+      <tr>
+        <th (click)="sortAnn('data')" role="button" title="Ordina per Data">
+          Data
+          <span *ngIf="sortKeyAnn === 'data'">{{ sortDirAnn === 1 ? '▲' : '▼' }}</span>
+        </th>
+        <th (click)="sortAnn('descrizione')" role="button" title="Ordina per Descrizione">
+          Descrizione
+          <span *ngIf="sortKeyAnn === 'descrizione'">{{ sortDirAnn === 1 ? '▲' : '▼' }}</span>
+        </th>
+        <th>Tipo</th>
+        <th class="text-end" style="width:30%" (click)="sortAnn('importo')" role="button" title="Ordina per Importo">
+          Importo
+          <span *ngIf="sortKeyAnn === 'importo'">{{ sortDirAnn === 1 ? '▲' : '▼' }}</span>
+        </th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let s of speseAnnualiSorted">
+        <td>{{ s.data }}</td>
+        <td>{{ s.descrizione }}</td>
+        <td class="text-capitalize">{{ s.frequenza }}</td>
+        <td class="text-end" style="width:30%">
+          <input
+            type="number"
+            class="form-control form-control-sm text-end"
+            [(ngModel)]="s.importo"
+            [ngModelOptions]="{ updateOn: 'blur' }"
+            (blur)="onImportoBlur(spese.indexOf(s))"
+            name="importoAnn{{ spese.indexOf(s) }}"
+            step="0.01"
+            style="width: 45%; margin-left: auto; display: block;"
+          />
+        </td>
+        <td class="text-end">
+          <button class="btn btn-link text-danger btn-sm" (click)="rimuovi(spese.indexOf(s))">✕</button>
         </td>
       </tr>
     </tbody>
